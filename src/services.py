@@ -12,238 +12,76 @@ class SearchService:
             print(f"Error loading file: {e}")
             return None
 
-    # --- Algorithms Implementation ---
 
-    def linear_search(self, text: str, query: str) -> bool:
-        """Simple linear search using Python's built-in 'in' operator."""
-        return query in text
+class StringSearcher:
+    def __init__(self, data):
+        self.data = data
+        self.data_set = set(data)
+        self.data_dict = {word: True for word in data}  # for dict-based search
+        self.index_map = {i: word for i, word in enumerate(data)}  # index map
+        self.trie = self.build_trie(data)  # for trie-based search
 
-    def hash_set_search(self, text: str, query: str) -> bool:
-        """Search using a hash set of words for efficient lookups."""
-        # Pre-split words and create set only once if this is used repeatedly
-        words_set = set(text.split())
-        return query in words_set
-
-    def binary_search(self, text: str, query: str) -> bool:
-        """Binary search on sorted words."""
-        sorted_words = sorted(text.split())
-        left, right = 0, len(sorted_words) - 1
-        
-        while left <= right:
-            mid = left + (right - left) // 2  # Avoid potential overflow
-            if sorted_words[mid] == query:
+    # Naive search
+    def search_naive(self, target):
+        for word in self.data:
+            if word == target:
                 return True
-            elif sorted_words[mid] < query:
-                left = mid + 1
+        return False
+
+    # Set-based search
+    def search_with_set(self, target):
+        return target in self.data_set
+
+    # Dict-based search
+    def search_with_dict(self, target):
+        return target in self.data_dict
+
+    # Index map-based search
+    def search_with_index_map(self, target):
+        return target in self.index_map.values()
+
+    # Binary Search (requires sorted data)
+    def search_with_binary(self, target):
+        sorted_data = sorted(self.data)  # sorting the data
+        low, high = 0, len(sorted_data) - 1
+        while low <= high:
+            mid = (low + high) // 2
+            if sorted_data[mid] == target:
+                return True
+            elif sorted_data[mid] < target:
+                low = mid + 1
             else:
-                right = mid - 1
+                high = mid - 1
         return False
 
-    def build_trie(self, words: List[str]) -> Dict:
-        """Build a trie data structure for fast string searches."""
-        root = {}
+    # Trie Search (For prefix-based search)
+    def build_trie(self, words):
+        trie = {}
         for word in words:
-            current = root
+            node = trie
             for char in word:
-                if char not in current:
-                    current[char] = {}
-                current = current[char]
-            current['#'] = True  # Mark end of word
-        return root
+                if char not in node:
+                    node[char] = {}
+                node = node[char]
+            node['#'] = word  # end of the word marker
+        return trie
 
-    def search_trie(self, trie: Dict, query: str) -> bool:
-        """Search for a word in the trie."""
-        current = trie
-        for char in query:
-            if char not in current:
+    def search_with_trie(self, target):
+        node = self.trie
+        for char in target:
+            if char not in node:
                 return False
-            current = current[char]
-        return '#' in current
+            node = node[char]
+        return '# ' in node  # Check if it's an actual word and not just a prefix
 
-    def trie_search(self, text: str, query: str) -> bool:
-        """Search using a trie data structure."""
-        words = text.split()
-        trie = self.build_trie(words)
-        return self.search_trie(trie, query)
+# Example usage:
+data = ["apple", "banana", "grape", "orange", "mango"]
+searcher = StringSearcher(data)
 
-    def build_bad_char_table(self, pattern: str) -> Dict[str, int]:
-        """Build bad character table for Boyer-Moore algorithm."""
-        m = len(pattern)
-        # Initialize with the pattern length for characters not in pattern
-        bad_char = {c: m for c in set(pattern)}
-        
-        # For each character in pattern, store the last occurrence position
-        for i in range(m-1):
-            bad_char[pattern[i]] = m - 1 - i
-            
-        return bad_char
-
-    def boyer_moore_search(self, text: str, pattern: str) -> bool:
-        """Boyer-Moore string search algorithm."""
-        n, m = len(text), len(pattern)
-        
-        if m == 0:
-            return True
-        if n < m:
-            return False
-
-        # Preprocess pattern
-        bad_char = self.build_bad_char_table(pattern)
-        
-        # Search
-        i = m - 1  # Start from the end of pattern
-        while i < n:
-            j = m - 1
-            k = i
-            
-            # Compare characters from right to left
-            while j >= 0 and text[k] == pattern[j]:
-                j -= 1
-                k -= 1
-            
-            if j == -1:  # Pattern found
-                return True
-                
-            # Shift based on bad character rule
-            char_shift = bad_char.get(text[i], m)
-            i += char_shift
-                
-        return False
-
-    def rabin_karp_search(self, text: str, pattern: str) -> bool:
-        """Rabin-Karp string search using rolling hash."""
-        if not pattern:
-            return True
-            
-        n, m = len(text), len(pattern)
-        if m > n:
-            return False
-            
-        # Use a smaller prime for better performance
-        q = 101  # Prime number
-        d = 256  # Number of characters in input alphabet
-        
-        # Calculate hash values for pattern and first window of text
-        pattern_hash = 0
-        text_hash = 0
-        h = pow(d, m-1) % q
-        
-        for i in range(m):
-            pattern_hash = (d * pattern_hash + ord(pattern[i])) % q
-            text_hash = (d * text_hash + ord(text[i])) % q
-        
-        # Slide the pattern over text one by one
-        for i in range(n - m + 1):
-            # Check if hash values match
-            if pattern_hash == text_hash:
-                # Verify character by character
-                match = True
-                for j in range(m):
-                    if text[i+j] != pattern[j]:
-                        match = False
-                        break
-                if match:
-                    return True
-            
-            # Calculate hash for next window
-            if i < n - m:
-                text_hash = (d * (text_hash - ord(text[i]) * h) + ord(text[i+m])) % q
-                # Make sure we have a positive hash value
-                if text_hash < 0:
-                    text_hash += q
-                    
-        return False
-
-    class AhoCorasickNode:
-        def __init__(self):
-            self.goto = {}  # Character transitions
-            self.out = set()  # Set of matched patterns
-            self.fail = None  # Failure function
-
-    def build_aho_corasick(self, patterns: List[str]):
-        """Build Aho-Corasick automaton."""
-        root = self.AhoCorasickNode()
-        
-        # Build trie
-        for i, pattern in enumerate(patterns):
-            node = root
-            for char in pattern:
-                if char not in node.goto:
-                    node.goto[char] = self.AhoCorasickNode()
-                node = node.goto[char]
-            node.out.add(i)
-        
-        # Build failure function using BFS
-        queue = []
-        for char, child in root.goto.items():
-            queue.append(child)
-            child.fail = root
-            
-        while queue:
-            node = queue.pop(0)
-            for char, child in node.goto.items():
-                queue.append(child)
-                failure = node.fail
-                
-                while failure and char not in failure.goto:
-                    failure = failure.fail
-                    
-                child.fail = failure.goto[char] if failure and char in failure.goto else root
-                child.out.update(child.fail.out)
-                
-        return root
-
-    def aho_corasick_search(self, text: str, pattern: str) -> bool:
-        """Aho-Corasick algorithm for multiple pattern search."""
-        if not pattern:
-            return True
-            
-        # For single pattern search, build automaton with just the pattern
-        automaton = self.build_aho_corasick([pattern])
-        node = automaton
-        
-        for char in text:
-            while node and char not in node.goto:
-                node = node.fail
-                
-            if not node:
-                node = automaton
-                continue
-                
-            node = node.goto[char]
-            
-            if node.out:  # Found a match
-                return True
-                
-        return False
-
-    # --- Dispatcher ---
-
-    def execute_algorithm(self, algo_name: str, text: str, query: str) -> bool:
-        algo_name = algo_name.lower()
-        if algo_name == "linear search":
-            return self.linear_search(text, query)
-        elif algo_name == "hash set search":
-            return self.hash_set_search(text, query)
-        elif algo_name == "binary search":
-            return self.binary_search(text, query)
-        elif algo_name == "trie search":
-            return self.trie_search(text, query)
-        elif algo_name in ["bayer moore", "boyer moore"]:
-            return self.boyer_moore_search(text, query)
-        elif algo_name == "rabin karp":
-            return self.rabin_karp_search(text, query)
-        elif algo_name == "aho corasick":
-            return self.aho_corasick_search(text, query)
-        else:
-            raise ValueError(f"Unknown algorithm: {algo_name}")
-
-    def search_in_file(self, filepath: str, algo_name: str, query: str) -> tuple[bool, float]:
-        text = self.load_file(filepath)
-        if text is None:
-            return False, 0.0
-        start_time = time.time()
-        found = self.execute_algorithm(algo_name, text, query)
-        end_time = time.time()
-        return found, (end_time - start_time) * 1000  # Return time in milliseconds
-
+target = "banana"
+print("Naive:", searcher.search_naive(target))
+print("Set:", searcher.search_with_set(target))
+print("Dict:", searcher.search_with_dict(target))
+print("Index Map:", searcher.search_with_index_map(target))
+print("Binary:", searcher.search_with_binary(target))
+print("Trie:", searcher.search_with_trie(target))
