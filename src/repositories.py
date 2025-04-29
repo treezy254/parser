@@ -3,6 +3,7 @@ import time
 import json
 import threading
 import logging
+from pathlib import Path
 from typing import List, Optional, Tuple, Dict, Callable
 from models import Log
 
@@ -13,7 +14,11 @@ logger = logging.getLogger(__name__)
 class LogRepository:
     """Handles persistence of Log objects to a JSON file."""
     
-    def __init__(self, filepath: str = 'logs.json') -> None:
+    def __init__(self, filepath: Path = None) -> None:
+        if filepath is None:
+            # Resolve path relative to project root (assuming src/ is 1 level below root)
+            ROOT_DIR = Path(__file__).resolve().parents[1]
+            filepath = ROOT_DIR / 'data' / 'logs' / 'logs.json'
         self.filepath = filepath
         self._lock = threading.Lock()
         self._ensure_file()
@@ -39,13 +44,20 @@ class LogRepository:
                 logger.exception("Failed to create log: %s", e)
 
     def read_logs(self) -> List[Dict]:
-        """Reads all logs from the file."""
         try:
             with open(self.filepath, 'r') as f:
-                return json.load(f)
+                content = f.read().strip()
+                if not content:
+                    logger.warning("Log file is empty. Returning empty list.")
+                    return []
+                return json.loads(content)
+        except json.JSONDecodeError as e:
+            logger.exception("Invalid JSON format: %s", e)
+            return []
         except Exception as e:
             logger.exception("Failed to read logs: %s", e)
             return []
+
 
     def update_log(self, log_id: str, updates: Dict) -> bool:
         """Updates a log entry by ID."""
@@ -85,27 +97,73 @@ class StorageRepository:
         self.data: Optional[List[str]] = None
         self.search_data: Optional[object] = None
         self.mode: str = 'naive'
+        self.last_loaded_file: Optional[str] = None
 
     def load_file(self, filepath: str) -> bool:
-        """Loads data from a file."""
-        if not os.path.exists(filepath):
-            logger.warning("File %s does not exist.", filepath)
-            return False
-        try:
-            with open(filepath, 'r', encoding='utf-8') as f:
-                self.data = f.read().splitlines()
-            logger.info("Loaded %d lines from %s", len(self.data), filepath)
-            return True
-        except Exception as e:
-            logger.exception("Error loading file: %s", e)
-            return False
+        """
+        Loads data from a file.
+        
+        Args:
+            filepath (str): Path to the file to load
+            
+        Returns:
+            bool: True if file was loaded successfully, False otherwise
+        """
+        # Print current directory for debugging
+        logger.info(f"Current working directory: {os.getcwd()}")
+        
+        # Try various path combinations if the direct path doesn't work
+        search_paths = [
+            filepath,  # Direct path as provided
+            os.path.abspath(filepath),  # Absolute path
+            os.path.join(os.getcwd(), filepath),  # Relative to current directory
+        ]
+        
+        # Add parent directory paths
+        parent_dir = os.path.dirname(os.getcwd())
+        search_paths.append(os.path.join(parent_dir, filepath))
+        search_paths.append(os.path.join(parent_dir, os.path.basename(filepath)))
+        
+        for path in search_paths:
+            if os.path.exists(path):
+                logger.info(f"Found file at: {path}")
+                try:
+                    with open(path, 'r', encoding='utf-8') as f:
+                        self.data = f.read().splitlines()
+                    logger.info(f"Loaded {len(self.data)} lines from {path}")
+                    self.last_loaded_file = path
+                    return True
+                except Exception as e:
+                    logger.exception(f"Error loading found file {path}: {e}")
+                    continue
+        
+        # If we reach here, we couldn't find or load the file
+        logger.warning(f"File not found in any of the search paths. Tried: {search_paths}")
+        return False
 
     def prepare(self, mode: str = 'naive') -> None:
-        """Prepares the data for a given search mode."""
+        """
+        Prepares the data for a given search mode.
+        
+        Args:
+            mode (str): The search algorithm mode to use
+            
+        Raises:
+            ValueError: If no data has been loaded
+        """
         if self.data is None:
-            raise ValueError("No data loaded. Call load_file() first.")
+            error_msg = "No data loaded. Call load_file() first."
+            if self.last_loaded_file:
+                error_msg += f" Last attempt was with file: {self.last_loaded_file}"
+            raise ValueError(error_msg)
         
         self.mode = mode
+        valid_modes = ['set', 'dict', 'index_map', 'binary', 'trie', 'naive']
+        
+        if mode not in valid_modes:
+            logger.warning(f"Unknown search mode '{mode}', defaulting to 'naive'")
+            self.mode = 'naive'
+        
         mode_map: Dict[str, Callable[[], object]] = {
             'set': lambda: set(self.data),
             'dict': lambda: {word: True for word in self.data},
@@ -115,31 +173,58 @@ class StorageRepository:
             'naive': lambda: self.data
         }
 
-        prep_func = mode_map.get(mode, mode_map['naive'])
-        self.search_data = prep_func()
-        logger.info("Search mode '%s' prepared.", mode)
+        try:
+            prep_func = mode_map.get(self.mode, mode_map['naive'])
+            self.search_data = prep_func()
+            logger.info(f"Search mode '{self.mode}' prepared with {len(self.data)} items.")
+        except Exception as e:
+            logger.exception(f"Error preparing search data for mode '{self.mode}': {e}")
+            # Fall back to naive mode in case of error
+            self.mode = 'naive'
+            self.search_data = self.data
+            logger.info(f"Falling back to 'naive' search mode after error.")
 
     def _build_trie(self, words: List[str]) -> Dict:
         """Constructs a trie from the list of words."""
+        logger.debug(f"Building trie from {len(words)} words")
         trie: Dict = {}
         for word in words:
+            if not word:  # Skip empty words
+                continue
             node = trie
             for char in word:
                 node = node.setdefault(char, {})
             node['#'] = True
+        logger.debug("Trie construction completed")
         return trie
 
     def search(self, target: str) -> Tuple[bool, float]:
-        """Performs a search for the target word."""
+        """
+        Performs a search for the target word.
+        
+        Args:
+            target (str): The string to search for
+            
+        Returns:
+            Tuple[bool, float]: (found, execution_time)
+            
+        Raises:
+            ValueError: If search data has not been prepared
+        """
         if self.search_data is None:
             raise ValueError("Search data not prepared. Call prepare() first.")
+        
+        if not target:
+            logger.warning("Empty search target provided, returning False")
+            return False, 0.0
         
         search_method = getattr(self, f"{self.mode}_search", self.naive_search)
         start = time.perf_counter()
         result = search_method(target)
         end = time.perf_counter()
-        logger.debug("Search for '%s' took %.6f seconds.", target, end - start)
-        return result, end - start
+        execution_time = end - start
+        logger.info(f"Search for '{target}' using {self.mode} mode took {execution_time:.6f} seconds. Result: {result}")
+        return result, execution_time
 
     # --- Search implementations ---
 

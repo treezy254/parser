@@ -1,6 +1,6 @@
 import json
 import os
-from typing import Dict
+from typing import Dict, Optional
 
 class Config:
     def __init__(self, config_path: Optional[str] = None) -> None:

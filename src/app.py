@@ -1,11 +1,12 @@
 from typing import List, Dict, Optional
 import uuid
 import logging
+import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from repositories import LogRepository, StorageRepository
 from config import Config
-from models import Log  # Assuming the `Log` model is defined in a `domain` module
+from models import Log  # Assuming the `Log` model is defined in a `models` module
 
 logger = logging.getLogger(__name__)
 
@@ -27,24 +28,94 @@ class AppService:
         self.file_path: str = file_config.get('linuxpath', '')
         self.reread_on_query: bool = server_config.get('reread_on_query', False)
         self.search_mode: str = server_config.get('search_mode', 'naive')
+        
+        # Validate file path exists early to prevent issues
+        self._validate_file_path()
+
+    def _validate_file_path(self) -> None:
+        """Validate that the data file exists and log warnings if not."""
+        if not self.file_path:
+            logger.warning("No file path configured. Search operations will fail.")
+            return
+            
+        # Convert to absolute path if it's relative
+        if not os.path.isabs(self.file_path):
+            # Adjust path based on current working directory
+            absolute_path = os.path.abspath(os.path.join(os.getcwd(), self.file_path))
+            logger.info(f"Converting relative path '{self.file_path}' to absolute path '{absolute_path}'")
+            self.file_path = absolute_path
+            
+        if not os.path.exists(self.file_path):
+            logger.warning(f"Data file not found at path: {self.file_path}")
+            # Try searching in parent directories
+            parent_dir = os.path.dirname(os.getcwd())
+            alternative_path = os.path.join(parent_dir, self.file_path)
+            if os.path.exists(alternative_path):
+                logger.info(f"Found data file in parent directory: {alternative_path}")
+                self.file_path = alternative_path
 
     def create_log(self, requesting_ip: str, query_string: str, algo_name: str) -> Dict[str, Optional[str]]:
         try:
             # Reload file if configured to do so, or if data is not already loaded
             if self.reread_on_query or self.storage_repo.data is None:
-                self.storage_repo.load_file(self.file_path)
+                file_loaded = self.storage_repo.load_file(self.file_path)
+                if not file_loaded:
+                    logger.error(f"Failed to load data file: {self.file_path}")
+                    return {
+                        "id": None,
+                        "query": query_string,
+                        "requesting_ip": requesting_ip,
+                        "execution_time": None,
+                        "timestamp": None,
+                        "status": "error",
+                        "error": f"Data file not found or couldn't be loaded: {self.file_path}"
+                    }
 
-            self.storage_repo.prepare(mode=algo_name)
+            # Only proceed if data is loaded
+            if self.storage_repo.data is None:
+                logger.error("No data loaded in storage repository")
+                return {
+                    "id": None,
+                    "query": query_string,
+                    "requesting_ip": requesting_ip,
+                    "execution_time": None,
+                    "timestamp": None,
+                    "status": "error",
+                    "error": "No data loaded in storage repository"
+                }
+
+            try:
+                self.storage_repo.prepare(mode=algo_name)
+            except ValueError as e:
+                logger.error(f"Failed to prepare storage: {e}")
+                return {
+                    "id": None,
+                    "query": query_string,
+                    "requesting_ip": requesting_ip,
+                    "execution_time": None,
+                    "timestamp": None,
+                    "status": "error",
+                    "error": f"Failed to prepare storage: {str(e)}"
+                }
 
             found: Optional[str]
             exec_time: Optional[float]
-            found, exec_time = self.storage_repo.search(query_string)
+            try:
+                found, exec_time = self.storage_repo.search(query_string)
+            except Exception as e:
+                logger.exception("Search failed: %s", e)
+                return {
+                    "id": None,
+                    "query": query_string,
+                    "requesting_ip": requesting_ip,
+                    "execution_time": None,
+                    "timestamp": None,
+                    "status": "error",
+                    "error": f"Search operation failed: {str(e)}"
+                }
 
-            log = Log(
-                id=str(uuid.uuid4()),
-                query=query_string,
-                requesting_ip=requesting_ip,
-            )
+            # Create log
+            log = Log(id=str(uuid.uuid4()), query=query_string, requesting_ip=requesting_ip) 
             log.create(found=found, exec_time=exec_time)
             self.log_repo.create_log(log)
 
@@ -54,18 +125,19 @@ class AppService:
                 "requesting_ip": log.requesting_ip,
                 "execution_time": log.execution_time,
                 "timestamp": log.timestamp.isoformat(),
-                "status": log.status
+                "status": "success" if found else "not_found"  # Fixed status logic
             }
 
         except Exception as e:
-            logger.exception("Failed to create log")
+            logger.exception(f"Failed to create log: {e}")
             return {
                 "id": None,
                 "query": query_string,
                 "requesting_ip": requesting_ip,
                 "execution_time": None,
                 "timestamp": None,
-                "status": "error"
+                "status": "error",
+                "error": str(e)
             }
 
     def read_logs(self) -> List[Dict[str, Optional[str]]]:
@@ -94,7 +166,8 @@ class AppService:
 
             for future in as_completed(futures):
                 try:
-                    results.append(future.result())
+                    result = future.result()
+                    results.append(result)
                 except Exception as e:
                     logger.exception("Error processing log request")
                     results.append({
@@ -103,7 +176,8 @@ class AppService:
                         "requesting_ip": futures[future]['requesting_ip'],
                         "execution_time": None,
                         "timestamp": None,
-                        "status": "error"
+                        "status": "error",
+                        "error": str(e)
                     })
 
         return results

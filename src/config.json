@@ -1,14 +1,17 @@
 {
-  "file_config": {
-    "linuxpath": "data/test_data/data10k.txt"
-  },
-  "server_config": {
-    "reread_on_query": true,
-    "search_mode": "trie",
-    "port": 8443,
-    "ssl_enabled": false,
-    "ssl_cert": "certs/cert.pem",
-    "ssl_key": "certs/key.pem",
-    "max_payload_size": 4096
-  }
+    "file_config": {
+        "linuxpath": "data/test_data/data10k.txt"
+    },
+    "server_config": {
+        "reread_on_query": true,
+        "search_mode": "trie",
+        "port": 8443,
+        "ssl_enabled": false,
+        "ssl_cert": "certs/cert.pem",
+        "ssl_key": "certs/key.pem",
+        "max_payload_size": 4096
+    },
+    "file": {
+        "linuxpath": "/project/workspace/tests/data/test_data/data10k.txt"
+    }
 }

@@ -1,49 +1,62 @@
-from dataclasses import dataclass, field
+import uuid
 from datetime import datetime
-from typing import Optional
 import threading
-import logging
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-@dataclass
 class Log:
-    """A data class representing a log entry for a query operation."""
-    id: str
-    query: str
-    requesting_ip: str
-    execution_time: Optional[float] = None
-    timestamp: Optional[datetime] = None
-    status: Optional[bool] = None  # True if string exists, False otherwise
-
-    _lock: threading.Lock = field(default_factory=threading.Lock, init=False, repr=False)
-
-    def __post_init__(self) -> None:
-        """Ensure query does not exceed 1024 bytes when encoded."""
-        try:
-            query_bytes: bytes = self.query.encode('utf-8')
-            if len(query_bytes) > 1024:
-                truncated = query_bytes[:1024].rstrip(b'\x00')
-                self.query = truncated.decode('utf-8', errors='ignore')
-                logger.warning("Query truncated to fit 1024-byte limit.")
-        except Exception as e:
-            logger.exception("Failed to process query during initialization: %s", e)
-
-    def create(self, found: bool, exec_time: float) -> None:
+    def __init__(self, id: str, query: str, requesting_ip: str):
         """
-        Update log with execution status and time.
+        Initialize a Log object.
         
-        Args:
-            found (bool): Whether the search result was found.
-            exec_time (float): Execution time in seconds.
+        :param id: Unique identifier for the log
+        :param query: The query string to log
+        :param requesting_ip: IP address of the requester
+        """
+        self.id = id
+        # Ensure query doesn't exceed 1024 bytes when encoded
+        self._set_query(query)
+        self.requesting_ip = requesting_ip
+        self.execution_time = None
+        self.timestamp = None
+        self.status = None
+        self._lock = threading.Lock()
+        
+    def _set_query(self, query):
+        """Safely set the query ensuring it doesn't exceed 1024 bytes when UTF-8 encoded"""
+        try:
+            encoded_query = query.encode("utf-8")
+            if len(encoded_query) > 1024:
+                # Truncate the query to fit within 1024 bytes
+                # This approach handles multi-byte characters properly
+                truncated = encoded_query[:1024]
+                # Make sure we don't break in the middle of a multi-byte character
+                while truncated[-1] & 0xC0 == 0x80:  # Check if it's a continuation byte
+                    truncated = truncated[:-1]
+                self.query = truncated.decode("utf-8", errors="replace")
+            else:
+                self.query = query
+        except (AttributeError, UnicodeEncodeError) as e:
+            # Handle encoding errors by using a safe default
+            self.query = str(query)[:256]  # Fallback with length limit
+            
+    def create(self, found: bool, exec_time: float):
+        """
+        Update the log with execution results.
+        
+        :param found: Whether the query returned results
+        :param exec_time: Execution time in seconds
         """
         with self._lock:
-            try:
-                self.status = found
-                self.execution_time = exec_time
-                self.timestamp = datetime.utcnow()
-                logger.info("Log created: %s", self)
-            except Exception as e:
-                logger.exception("Failed to update log: %s", e)
+            self.status = found
+            self.execution_time = exec_time
+            self.timestamp = datetime.now()
+        
+    def to_dict(self):
+        """Convert the log to a dictionary."""
+        return {
+            "id": self.id,
+            "query": self.query,
+            "requesting_ip": self.requesting_ip,
+            "execution_time": self.execution_time,
+            "timestamp": self.timestamp.isoformat() if self.timestamp else None,
+            "status": self.status
+        }
