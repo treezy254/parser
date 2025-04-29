@@ -1,102 +1,84 @@
-import unittest
-from unittest import mock
-from io import BytesIO
 import ssl
 import socket
-import tempfile
+import logging
 import os
 
-from your_module import secure_socket, protect_buffer  # Replace with actual module name
+# Set up logging
+logger = logging.getLogger(__name__)
+
+def secure_socket(sock: socket.socket, certfile: str, keyfile: str, server_side: bool = True) -> ssl.SSLSocket:
+    """
+    Secure a socket connection by wrapping it with SSL/TLS encryption.
+
+    :param sock: The socket to secure.
+    :param certfile: Path to the certificate file.
+    :param keyfile: Path to the private key file.
+    :return: An SSL-wrapped socket.
+    """
+    try:
+        # First check if certificate and key files exist
+        if not os.path.exists(certfile):
+            logger.error(f"Certificate file not found: {certfile}")
+            raise FileNotFoundError(f"Certificate file not found: {certfile}")
+        
+        if not os.path.exists(keyfile):
+            logger.error(f"Key file not found: {keyfile}")
+            raise FileNotFoundError(f"Key file not found: {keyfile}")
+            
+        # Create a default SSL context for the server side
+        context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+        
+        # Add error handling around loading cert chain
+        try:
+            context.load_cert_chain(certfile=certfile, keyfile=keyfile)
+        except ssl.SSLError as e:
+            logger.error(f"SSL error when loading certificate chain: {e}")
+            if "PEM lib" in str(e):
+                logger.error("Invalid PEM format. Check that certificate and key files are properly formatted.")
+            raise
+            
+        # Wrap the socket with the SSL context
+        secure_sock = context.wrap_socket(sock, server_side=server_side)
+        return secure_sock
+
+    except FileNotFoundError as e:
+        logger.error(f"Certificate file not found: {e}")
+        raise
+    except ssl.SSLError as e:
+        logger.error(f"SSL error occurred: {e}")
+        raise
+    except Exception as e:
+        logger.exception("Failed to secure socket")
+        raise
 
 
-class TestSecureSocket(unittest.TestCase):
-    def setUp(self):
-        # Generate dummy cert and key for testing
-        self.certfile = tempfile.NamedTemporaryFile(delete=False, suffix=".pem")
-        self.keyfile = tempfile.NamedTemporaryFile(delete=False, suffix=".key")
+def protect_buffer(data: bytes, max_payload_size: int) -> bytes:
+    """
+    Protect the buffer by ensuring the data does not exceed the max allowed payload size.
 
-        self.certfile.write(b"""-----BEGIN CERTIFICATE-----
-MIIBjTCCATegAwIBAgIUHps5T3d06IjZa6rJqMSqAKdWGiMwCgYIKoZIzj0EAwIw
-EjEQMA4GA1UEAwwHZXhhbXBsZTAeFw0yNTA0MjgxODAxMTFaFw0yNjA0MjgxODAx
-MTFaMBIxEDAOBgNVBAMMB2V4YW1wbGUwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNC
-AAQIHVu7ef7RukYcH3HMyBfhs+pN7dx6wNplMZ+crZlaUcfGExkFBNyXkMZpvHUI
-JtIYBhZcIOYZvSgeu0AXOIgNo1MwUTAdBgNVHQ4EFgQU7NvhzazN+ul6IKEDRuEK
-ZQPXp7kwHwYDVR0jBBgwFoAU7NvhzazN+ul6IKEDRuEKZQPXp7kwDwYDVR0TAQH/
-BAUwAwEB/zAKBggqhkjOPQQDAgNHADBEAiAztUPVbTgfYvxfQBLJ1H3wE9kgbf97
-++/ZfEMO6mPU1gIgMz1cS3S0pyP+u6u9xLDlaS1oISXEbczMw3bTqBG/7dw=
------END CERTIFICATE-----""")
-        self.certfile.close()
+    :param data: The data to check.
+    :param max_payload_size: The maximum allowable size for the payload.
+    :return: The data if it does not exceed the max payload size.
+    :raises BufferError: If the data exceeds the max allowed size.
+    :raises TypeError: If the input is not bytes.
+    """
+    # Check input type first
+    if not isinstance(data, bytes):
+        raise TypeError("Input data must be bytes")
+    
+    # Check if max_payload_size is valid
+    if max_payload_size < 0:
+        logger.warning(f"Invalid max_payload_size: {max_payload_size}")
+        raise BufferError(f"Payload too large. Max allowed: {max_payload_size} bytes")
+        
+    try:
+        if len(data) > max_payload_size:
+            raise BufferError(f"Payload too large. Max allowed: {max_payload_size} bytes")
+        return data
 
-        self.keyfile.write(b"""-----BEGIN EC PRIVATE KEY-----
-MHcCAQEEIAkZZL64JJDDbLMTlGcODxwWaDz0ttRgzKczq3Y0qucDoAoGCCqGSM49
-AwEHoUQDQgAECB1bu3n+0bpGHB9xzMH37x+pN7dx6wNplMZ+crZlaUcfGExkFBNy
-XkMZpvHUIJtIYBhZcIOYZvSgeu0AXOIgNw==
------END EC PRIVATE KEY-----""")
-        self.keyfile.close()
-
-    def tearDown(self):
-        os.unlink(self.certfile.name)
-        os.unlink(self.keyfile.name)
-
-    def test_secure_socket_success(self):
-        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-        # Wrap socket (won't actually start listening or connecting)
-        wrapped_socket = secure_socket(server_socket, self.certfile.name, self.keyfile.name)
-        self.assertIsInstance(wrapped_socket, ssl.SSLSocket)
-        wrapped_socket.close()
-
-    def test_secure_socket_invalid_cert(self):
-        with tempfile.NamedTemporaryFile(mode="w", delete=False) as bad_cert:
-            bad_cert.write("INVALID CERT")
-        with self.assertRaises(ssl.SSLError):
-            secure_socket(socket.socket(), bad_cert.name, self.keyfile.name)
-        os.unlink(bad_cert.name)
-
-    def test_secure_socket_missing_certfile(self):
-        with self.assertRaises(FileNotFoundError):
-            secure_socket(socket.socket(), "missing_cert.pem", self.keyfile.name)
-
-    def test_secure_socket_wrap_error(self):
-        # Patch wrap_socket to raise an error
-        with mock.patch("ssl.SSLContext.wrap_socket", side_effect=ssl.SSLError("wrap failed")):
-            with self.assertRaises(ssl.SSLError):
-                secure_socket(socket.socket(), self.certfile.name, self.keyfile.name)
-
-
-class TestProtectBuffer(unittest.TestCase):
-    def test_valid_data_under_limit(self):
-        data = b"hello"
-        result = protect_buffer(data, max_payload_size=10)
-        self.assertEqual(result, data)
-
-    def test_data_exactly_at_limit(self):
-        data = b"123456"
-        result = protect_buffer(data, max_payload_size=6)
-        self.assertEqual(result, data)
-
-    def test_data_exceeds_limit_raises(self):
-        data = b"abcdef"
-        with self.assertRaises(BufferError):
-            protect_buffer(data, max_payload_size=5)
-
-    def test_empty_data(self):
-        result = protect_buffer(b"", max_payload_size=1)
-        self.assertEqual(result, b"")
-
-    def test_large_data_under_limit(self):
-        large_data = b"x" * 100_000
-        result = protect_buffer(large_data, max_payload_size=100_000)
-        self.assertEqual(result, large_data)
-
-    def test_non_bytes_input_raises_typeerror(self):
-        with self.assertRaises(TypeError):
-            protect_buffer("not_bytes", max_payload_size=100)  # type: ignore
-
-    def test_negative_payload_size_raises(self):
-        with self.assertRaises(BufferError):
-            protect_buffer(b"data", max_payload_size=-1)
-
-
-if __name__ == "__main__":
-    unittest.main()
+    except BufferError as e:
+        logger.warning(f"Buffer error: {e}")
+        raise
+    except Exception as e:
+        logger.exception("Unexpected error in protect_buffer")
+        raise

@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import MagicMock, patch, call
 import json
 import socket
-from server_module import client_handler  # Update this with your module name
+from main import client_handler  
 
 
 class TestClientHandler(unittest.TestCase):
@@ -16,7 +16,7 @@ class TestClientHandler(unittest.TestCase):
 
         self.app_service = MagicMock()
 
-    @patch('server_module.protect_buffer')
+    @patch('main.protect_buffer')
     def test_create_log_success(self, mock_protect):
         request_data = json.dumps({
             'action': 'create_log',
@@ -48,7 +48,7 @@ class TestClientHandler(unittest.TestCase):
         self.conn.sendall.assert_called_once_with(json.dumps(response_data).encode())
         self.conn.close.assert_called_once()
 
-    @patch('server_module.protect_buffer')
+    @patch('main.protect_buffer')
     def test_read_logs_success(self, mock_protect):
         request_data = json.dumps({'action': 'read_logs'}).encode()
         mock_protect.return_value = request_data
@@ -61,7 +61,7 @@ class TestClientHandler(unittest.TestCase):
 
         self.conn.sendall.assert_called_once_with(json.dumps(logs).encode())
 
-    @patch('server_module.protect_buffer')
+    @patch('main.protect_buffer')
     def test_invalid_action(self, mock_protect):
         request_data = json.dumps({'action': 'invalid'}).encode()
         mock_protect.return_value = request_data
@@ -78,7 +78,7 @@ class TestClientHandler(unittest.TestCase):
 
         self.conn.sendall.assert_called_once_with(json.dumps({'error': 'Invalid JSON format'}).encode())
 
-    @patch('server_module.protect_buffer')
+    @patch('main.protect_buffer')
     def test_missing_key_error(self, mock_protect):
         request_data = json.dumps({'action': 'create_log'}).encode()
         mock_protect.return_value = request_data
@@ -90,7 +90,7 @@ class TestClientHandler(unittest.TestCase):
         sent_data = json.loads(self.conn.sendall.call_args[0][0].decode())
         self.assertTrue('Missing key' in sent_data['error'])
 
-    @patch('server_module.protect_buffer')
+    @patch('main.protect_buffer')
     def test_general_exception(self, mock_protect):
         request_data = json.dumps({'action': 'read_logs'}).encode()
         mock_protect.return_value = request_data
@@ -106,17 +106,17 @@ class TestClientHandler(unittest.TestCase):
 
 class TestMainServer(unittest.TestCase):
 
-    @patch('server_module.secure_socket')
-    @patch('server_module.socket.socket')
-    @patch('server_module.Config')
-    @patch('server_module.AppService')
-    @patch('server_module.LogRepository')
-    @patch('server_module.StorageRepository')
+    @patch('main.secure_socket')
+    @patch('main.socket.socket')
+    @patch('main.Config')
+    @patch('main.AppService')
+    @patch('main.LogRepository')
+    @patch('main.StorageRepository')
     def test_main_server_ssl_setup(
         self, mock_storage_repo, mock_log_repo, mock_app_service,
         mock_config, mock_socket_class, mock_secure_socket
     ):
-        from server_module import main  # Re-import to patch __main__
+        from main import main  # Re-import to patch __main__
 
         mock_sock = MagicMock()
         mock_socket_class.return_value = mock_sock

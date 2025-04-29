@@ -4,7 +4,7 @@ import json
 import tempfile
 from datetime import datetime
 from models import Log
-from your_module import LogRepository, StorageRepository  # adjust `your_module` to your actual filename
+from repositories import LogRepository, StorageRepository 
 
 class TestLogRepository(unittest.TestCase):
     def setUp(self):
