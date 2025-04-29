@@ -1,8 +1,6 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional
-from services import SearchService  # we will make SearchService a class now
-
 
 @dataclass
 class Log:
@@ -17,13 +15,9 @@ class Log:
         # Invariant: query should not exceed 1024 bytes
         query_bytes = self.query.encode('utf-8')
         if len(query_bytes) > 1024:
-            self.query = query_bytes[:1024].rstrip(
-                b'\x00').decode('utf-8', errors='ignore')
+            self.query = query_bytes[:1024].rstrip(b'\x00').decode('utf-8', errors='ignore')
 
-    def create(self, filepath: str, algo_name: str):
-        service = SearchService()
-        found, exec_time = service.search_in_file(
-            filepath, algo_name, self.query)
+    def create(self, found: bool, exec_time: float):
+        self.status = found
         self.execution_time = exec_time
         self.timestamp = datetime.utcnow()
-        self.status = found
