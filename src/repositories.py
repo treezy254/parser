@@ -34,8 +34,6 @@ class LogRepository:
                 json.dump(logs, f, default=str, indent=4)
         return updated
  
-
- 
     def delete_log(self, log_id: str) -> bool:
         logs = self.read_logs()
         initial_length = len(logs)
