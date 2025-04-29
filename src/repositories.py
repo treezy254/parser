@@ -45,27 +45,28 @@ class LogRepository:
         return False
 
 class StorageRepository:
-    def __init__(self, filepath: str, mode: str = 'naive'):
-        self.filepath = filepath
-        self.mode = mode
-        self.data = self.load_file()
-        if self.data is None:
-            raise ValueError(f"Failed to load file: {filepath}")
-        self.prepare_data()
-        
-    def load_file(self) -> Optional[list]:
-        if not os.path.exists(self.filepath):
-            print(f"File {self.filepath} does not exist.")
-            return None
+    def __init__(self):
+        self.data = None
+        self.search_data = None
+        self.mode = 'naive'
+
+    def load_file(self, filepath: str) -> bool:
+        if not os.path.exists(filepath):
+            print(f"File {filepath} does not exist.")
+            return False
         try:
-            with open(self.filepath, 'r', encoding='utf-8') as f:
+            with open(filepath, 'r', encoding='utf-8') as f:
                 content = f.read()
-                return content.splitlines()  # assuming file contains one word per line
+                self.data = content.splitlines()  # assuming one word per line
+            return True
         except Exception as e:
             print(f"Error loading file: {e}")
-            return None
+            return False
 
-    def prepare_data(self):
+    def prepare(self, mode: str = 'naive'):
+        if self.data is None:
+            raise ValueError("No data loaded. Call load_file() first.")
+        self.mode = mode
         mode_prep = {
             'set': lambda: set(self.data),
             'dict': lambda: {word: True for word in self.data},
@@ -86,13 +87,15 @@ class StorageRepository:
         return trie
 
     def search(self, target) -> Tuple[bool, float]:
-        """Search for the target and return (result, elapsed_time_in_seconds)."""
+        if self.search_data is None:
+            raise ValueError("Search data not prepared. Call prepare() first.")
         search_method = getattr(self, f"{self.mode}_search", self.naive_search)
-        start_time = time.perf_counter()
+        start = time.perf_counter()
         result = search_method(target)
-        end_time = time.perf_counter()
-        elapsed_time = end_time - start_time
-        return result, elapsed_time
+        end = time.perf_counter()
+        return result, end - start
+
+    # --- Search methods ---
 
     def naive_search(self, target):
         return target in self.search_data
