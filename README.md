@@ -1,6 +1,6 @@
 # Fast Concurrent File Search Server
 
-This is a high-performance, multithreaded Python server that receives client queries and searches for a specified string inside a file. It returns `True` if the string is found, `False` otherwise, and logs the execution time of the search.
+This is a high-performance, multithreaded Python server that receives client queries and searches for a specified string inside a file. It returns `STRING EXISTS` if the string is found, `STRING NOT FOUND` otherwise, and logs the execution time of the search.
 
 ---
 
@@ -30,20 +30,15 @@ project/ ├── src/ │ └── main.py ├── setup.sh └── READM
 
 ## ⚙️ Installation
 
-````bash
+```bash
     chmod +x setup.sh
 
     sudo ./setup.sh
 
 
-This will:
-
-    Set up the app to run as a background service (file-search-server.service)
-
-    Place logs in /var/log/file_search_server.log
-
 
 🧪 Testing
+
 ✅ Unit Tests
 
 Run all unit tests:
@@ -53,5 +48,5 @@ python3 -m unittest discover -s tests/unit
 ✅ End-to-End Test
 
 python3 tests/e2e.py
+
 ```
-````
