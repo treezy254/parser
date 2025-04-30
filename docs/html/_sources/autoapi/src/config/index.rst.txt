@@ -1,0 +1,43 @@
+src.config
+==========
+
+.. py:module:: src.config
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   src.config.Config
+
+
+Module Contents
+---------------
+
+.. py:class:: Config(config_path: Optional[str] = None)
+
+   .. py:attribute:: _file_config
+
+
+   .. py:attribute:: _server_config
+
+
+   .. py:method:: get_file_config() -> Dict[str, str]
+
+      Returns the file configuration settings.
+
+      Returns:
+          dict: The 'file_config' section from the loaded configuration.
+
+
+
+   .. py:method:: get_server_config() -> Dict[str, str]
+
+      Returns the server configuration settings.
+
+      Returns:
+          dict: The 'server_config' section from the loaded configuration.
+
+
+

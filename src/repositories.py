@@ -5,26 +5,36 @@ import threading
 import logging
 from pathlib import Path
 from typing import List, Optional, Tuple, Dict, Callable
-from models import Log
+from models import Log  # Assumes Log is a dataclass or class with an 'id' attribute
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
 class LogRepository:
-    """Handles persistence of Log objects to a JSON file."""
-    
-    def __init__(self, filepath: Path = None) -> None:
+    """
+    Handles persistence of Log objects to a JSON file.
+
+    Supports basic CRUD operations on logs stored as JSON entries in a file.
+    Thread-safe using a lock for write operations.
+    """
+
+    def __init__(self, filepath: Optional[Path] = None) -> None:
+        """
+        Initializes the LogRepository with a given or default file path.
+
+        Args:
+            filepath (Optional[Path]): Custom path for the JSON file. If None, uses default path.
+        """
         if filepath is None:
-            # Resolve path relative to project root (assuming src/ is 1 level below root)
             ROOT_DIR = Path(__file__).resolve().parents[1]
             filepath = ROOT_DIR / 'data' / 'logs' / 'logs.json'
-        self.filepath = filepath
+        self.filepath: Path = filepath
         self._lock = threading.Lock()
         self._ensure_file()
 
     def _ensure_file(self) -> None:
-        """Ensures that the log file exists."""
+        """Ensures the log file exists. Creates it if not found."""
         if not os.path.exists(self.filepath):
             try:
                 with open(self.filepath, 'w') as f:
@@ -33,17 +43,28 @@ class LogRepository:
                 logger.exception("Failed to create log file: %s", e)
 
     def create_log(self, log: Log) -> None:
-        """Appends a new log entry to the file."""
+        """
+        Appends a new log entry to the file.
+
+        Args:
+            log (Log): The log instance to persist.
+        """
         with self._lock:
             try:
                 logs = self.read_logs()
-                logs.append(log.__dict__)
+                logs.append(log.__dict__)  # Assumes Log is JSON-serializable
                 with open(self.filepath, 'w') as f:
                     json.dump(logs, f, default=str, indent=4)
             except Exception as e:
                 logger.exception("Failed to create log: %s", e)
 
     def read_logs(self) -> List[Dict]:
+        """
+        Reads all log entries from the file.
+
+        Returns:
+            List[Dict]: List of logs as dictionaries.
+        """
         try:
             with open(self.filepath, 'r') as f:
                 content = f.read().strip()
@@ -58,9 +79,17 @@ class LogRepository:
             logger.exception("Failed to read logs: %s", e)
             return []
 
-
     def update_log(self, log_id: str, updates: Dict) -> bool:
-        """Updates a log entry by ID."""
+        """
+        Updates a log entry by ID.
+
+        Args:
+            log_id (str): ID of the log to update.
+            updates (Dict): Dictionary of fields to update.
+
+        Returns:
+            bool: True if log was updated, False otherwise.
+        """
         with self._lock:
             try:
                 logs = self.read_logs()
@@ -76,7 +105,15 @@ class LogRepository:
                 return False
 
     def delete_log(self, log_id: str) -> bool:
-        """Deletes a log entry by ID."""
+        """
+        Deletes a log entry by ID.
+
+        Args:
+            log_id (str): ID of the log to delete.
+
+        Returns:
+            bool: True if deletion was successful, False otherwise.
+        """
         with self._lock:
             try:
                 logs = self.read_logs()
@@ -90,9 +127,14 @@ class LogRepository:
                 logger.exception("Failed to delete log: %s", e)
                 return False
 
+
 class StorageRepository:
-    """Handles data loading and search operations with multiple search strategies."""
-    
+    """
+    Handles data loading and searching with multiple search modes.
+
+    Supports naive, set, dictionary, index map, binary search, and trie search.
+    """
+
     def __init__(self) -> None:
         self.data: Optional[List[str]] = None
         self.search_data: Optional[object] = None
@@ -101,32 +143,26 @@ class StorageRepository:
 
     def load_file(self, filepath: str) -> bool:
         """
-        Loads data from a file.
-        
+        Loads data (line-by-line) from a file.
+
         Args:
-            filepath (str): Path to the file to load
-            
+            filepath (str): Path to the file.
+
         Returns:
-            bool: True if file was loaded successfully, False otherwise
+            bool: True if successfully loaded, else False.
         """
-        # Print current directory for debugging
         logger.info(f"Current working directory: {os.getcwd()}")
-        
-        # Try various path combinations if the direct path doesn't work
+
         search_paths = [
-            filepath,  # Direct path as provided
-            os.path.abspath(filepath),  # Absolute path
-            os.path.join(os.getcwd(), filepath),  # Relative to current directory
+            filepath,
+            os.path.abspath(filepath),
+            os.path.join(os.getcwd(), filepath),
+            os.path.join(os.path.dirname(os.getcwd()), filepath),
+            os.path.join(os.path.dirname(os.getcwd()), os.path.basename(filepath)),
         ]
-        
-        # Add parent directory paths
-        parent_dir = os.path.dirname(os.getcwd())
-        search_paths.append(os.path.join(parent_dir, filepath))
-        search_paths.append(os.path.join(parent_dir, os.path.basename(filepath)))
-        
+
         for path in search_paths:
             if os.path.exists(path):
-                logger.info(f"Found file at: {path}")
                 try:
                     with open(path, 'r', encoding='utf-8') as f:
                         self.data = f.read().splitlines()
@@ -135,113 +171,115 @@ class StorageRepository:
                     return True
                 except Exception as e:
                     logger.exception(f"Error loading found file {path}: {e}")
-                    continue
-        
-        # If we reach here, we couldn't find or load the file
-        logger.warning(f"File not found in any of the search paths. Tried: {search_paths}")
+        logger.warning(f"File not found. Tried: {search_paths}")
         return False
 
     def prepare(self, mode: str = 'naive') -> None:
         """
-        Prepares the data for a given search mode.
-        
+        Prepares the data structure for searching.
+
         Args:
-            mode (str): The search algorithm mode to use
-            
+            mode (str): One of ['naive', 'set', 'dict', 'index_map', 'binary', 'trie'].
+
         Raises:
-            ValueError: If no data has been loaded
+            ValueError: If data has not been loaded.
         """
         if self.data is None:
-            error_msg = "No data loaded. Call load_file() first."
+            msg = "No data loaded. Call load_file() first."
             if self.last_loaded_file:
-                error_msg += f" Last attempt was with file: {self.last_loaded_file}"
-            raise ValueError(error_msg)
-        
-        self.mode = mode
-        valid_modes = ['set', 'dict', 'index_map', 'binary', 'trie', 'naive']
-        
-        if mode not in valid_modes:
-            logger.warning(f"Unknown search mode '{mode}', defaulting to 'naive'")
-            self.mode = 'naive'
-        
+                msg += f" Last attempt was: {self.last_loaded_file}"
+            raise ValueError(msg)
+
+        self.mode = mode if mode in ['set', 'dict', 'index_map', 'binary', 'trie', 'naive'] else 'naive'
+
         mode_map: Dict[str, Callable[[], object]] = {
             'set': lambda: set(self.data),
             'dict': lambda: {word: True for word in self.data},
             'index_map': lambda: {i: word for i, word in enumerate(self.data)},
             'binary': lambda: sorted(self.data),
             'trie': lambda: self._build_trie(self.data),
-            'naive': lambda: self.data
+            'naive': lambda: self.data,
         }
 
         try:
-            prep_func = mode_map.get(self.mode, mode_map['naive'])
-            self.search_data = prep_func()
-            logger.info(f"Search mode '{self.mode}' prepared with {len(self.data)} items.")
+            self.search_data = mode_map.get(self.mode, mode_map['naive'])()
+            logger.info(f"Prepared search mode '{self.mode}' with {len(self.data)} items.")
         except Exception as e:
-            logger.exception(f"Error preparing search data for mode '{self.mode}': {e}")
-            # Fall back to naive mode in case of error
+            logger.exception(f"Error preparing search mode '{self.mode}': {e}")
             self.mode = 'naive'
             self.search_data = self.data
-            logger.info(f"Falling back to 'naive' search mode after error.")
+            logger.info("Falling back to 'naive' mode.")
 
     def _build_trie(self, words: List[str]) -> Dict:
-        """Constructs a trie from the list of words."""
-        logger.debug(f"Building trie from {len(words)} words")
-        trie: Dict = {}
+        """
+        Builds a trie data structure from a list of words.
+
+        Args:
+            words (List[str]): Words to include in trie.
+
+        Returns:
+            Dict: Trie structure.
+        """
+        trie: Dict[str, dict] = {}
         for word in words:
-            if not word:  # Skip empty words
+            if not word:
                 continue
             node = trie
             for char in word:
                 node = node.setdefault(char, {})
-            node['#'] = True
-        logger.debug("Trie construction completed")
+            node['#'] = True  # End of word marker
         return trie
 
     def search(self, target: str) -> Tuple[bool, float]:
         """
-        Performs a search for the target word.
-        
+        Searches for a word using the currently prepared mode.
+
         Args:
-            target (str): The string to search for
-            
+            target (str): Word to search.
+
         Returns:
-            Tuple[bool, float]: (found, execution_time)
-            
+            Tuple[bool, float]: (Found or not, time taken in seconds)
+
         Raises:
-            ValueError: If search data has not been prepared
+            ValueError: If search data has not been prepared.
         """
         if self.search_data is None:
             raise ValueError("Search data not prepared. Call prepare() first.")
-        
+
         if not target:
-            logger.warning("Empty search target provided, returning False")
+            logger.warning("Empty search target provided.")
             return False, 0.0
-        
+
         search_method = getattr(self, f"{self.mode}_search", self.naive_search)
         start = time.perf_counter()
         result = search_method(target)
         end = time.perf_counter()
         execution_time = end - start
-        logger.info(f"Search for '{target}' using {self.mode} mode took {execution_time:.6f} seconds. Result: {result}")
+
+        logger.info(f"Search '{target}' with mode '{self.mode}' took {execution_time:.6f}s. Found: {result}")
         return result, execution_time
 
-    # --- Search implementations ---
+    # --- Search implementations below ---
 
     def naive_search(self, target: str) -> bool:
+        """Naive linear search."""
         return target in self.search_data
 
     def set_search(self, target: str) -> bool:
+        """Search using a set."""
         return target in self.search_data
 
     def dict_search(self, target: str) -> bool:
+        """Search using a dictionary."""
         return target in self.search_data
 
     def index_map_search(self, target: str) -> bool:
+        """Search values in an index map."""
         return target in self.search_data.values()
 
     def binary_search(self, target: str) -> bool:
-        data = self.search_data
+        """Binary search (requires sorted list)."""
+        data: List[str] = self.search_data  # type: ignore
         low, high = 0, len(data) - 1
         while low <= high:
             mid = (low + high) // 2
@@ -254,7 +292,8 @@ class StorageRepository:
         return False
 
     def trie_search(self, target: str) -> bool:
-        node = self.search_data
+        """Search using a trie."""
+        node: Dict = self.search_data  # type: ignore
         for char in target:
             if char not in node:
                 return False

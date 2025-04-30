@@ -1,0 +1,89 @@
+src.models
+==========
+
+.. py:module:: src.models
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   src.models.Log
+
+
+Module Contents
+---------------
+
+.. py:class:: Log(id: str, query: str, requesting_ip: str)
+
+   A thread-safe log entry for recording query executions.
+
+   This class records details such as query text, requester's IP, 
+   execution time, timestamp, and query status.
+
+
+   .. py:attribute:: id
+      :type:  str
+
+
+   .. py:attribute:: query
+      :type:  str
+      :value: ''
+
+
+
+   .. py:attribute:: requesting_ip
+      :type:  str
+
+
+   .. py:attribute:: execution_time
+      :type:  Optional[float]
+      :value: None
+
+
+
+   .. py:attribute:: timestamp
+      :type:  Optional[datetime.datetime]
+      :value: None
+
+
+
+   .. py:attribute:: status
+      :type:  Optional[bool]
+      :value: None
+
+
+
+   .. py:attribute:: _lock
+
+
+   .. py:method:: _set_query(query: str) -> None
+
+      Safely set the query, ensuring it doesn't exceed 1024 bytes 
+      when UTF-8 encoded. Truncates cleanly at character boundaries if needed.
+
+      Args:
+          query (str): The query string to sanitize and store.
+
+
+
+   .. py:method:: create(found: bool, exec_time: float) -> None
+
+      Populate log entry with result status and execution details.
+
+      Args:
+          found (bool): Whether the query returned any results.
+          exec_time (float): Time taken to execute the query in seconds.
+
+
+
+   .. py:method:: to_dict() -> Dict[str, Optional[str]]
+
+      Serialize the log entry into a dictionary format.
+
+      Returns:
+          dict: A dictionary representing the log entry.
+
+
+
