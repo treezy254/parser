@@ -1,0 +1,90 @@
+src.app
+=======
+
+.. py:module:: src.app
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   src.app.logger
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   src.app.AppService
+
+
+Module Contents
+---------------
+
+.. py:data:: logger
+
+.. py:class:: AppService(log_repo: repositories.LogRepository, storage_repo: repositories.StorageRepository, config: config.Config)
+
+   Application service layer responsible for handling search queries,
+   managing logs, and interacting with storage and logging repositories.
+
+
+   .. py:attribute:: log_repo
+
+
+   .. py:attribute:: storage_repo
+
+
+   .. py:attribute:: config
+
+
+   .. py:attribute:: file_path
+      :type:  str
+
+
+   .. py:attribute:: reread_on_query
+      :type:  bool
+
+
+   .. py:attribute:: search_mode
+      :type:  str
+
+
+   .. py:method:: _validate_file_path() -> None
+
+      Ensure the configured file path is absolute and exists.
+      Logs warnings if issues are detected.
+
+
+
+   .. py:method:: create_log(requesting_ip: str, query_string: str, algo_name: str) -> Dict[str, Optional[str]]
+
+      Process a query, perform search, and log the results.
+
+      :param requesting_ip: IP address of the requester
+      :param query_string: The search query string
+      :param algo_name: Algorithm name used for searching
+      :return: A dictionary containing log information and status
+
+
+
+   .. py:method:: read_logs() -> List[Dict[str, Optional[str]]]
+
+      Retrieve all logs from the log repository.
+
+      :return: List of log entries as dictionaries
+
+
+
+   .. py:method:: create_logs_parallel(requests: List[Dict[str, str]]) -> List[Dict[str, Optional[str]]]
+
+      Create logs in parallel using a thread pool for performance.
+
+      :param requests: List of request dicts, each containing:
+                       'requesting_ip', 'query_string', and 'algo_name'
+      :return: List of log results with success/error statuses
+
+
+

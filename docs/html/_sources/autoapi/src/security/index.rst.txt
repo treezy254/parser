@@ -1,0 +1,69 @@
+src.security
+============
+
+.. py:module:: src.security
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   src.security.logger
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   src.security.secure_socket
+   src.security.protect_buffer
+
+
+Module Contents
+---------------
+
+.. py:data:: logger
+
+.. py:function:: secure_socket(sock: socket.socket, certfile: str, keyfile: str, server_side: bool = True) -> ssl.SSLSocket
+
+   Wrap a socket with SSL/TLS encryption for secure communication.
+
+   This function ensures that the given socket is encrypted using the provided 
+   certificate and key files, creating a secure communication channel.
+
+   Args:
+       sock (socket.socket): The socket object to secure.
+       certfile (str): Path to the SSL certificate file (PEM format).
+       keyfile (str): Path to the private key file (PEM format).
+       server_side (bool, optional): Whether the socket is for a server. Defaults to True.
+
+   Returns:
+       ssl.SSLSocket: The SSL-wrapped socket.
+
+   Raises:
+       FileNotFoundError: If either the certificate or key file is missing.
+       ssl.SSLError: If there is an SSL-related error.
+       Exception: For any other unexpected error during wrapping.
+
+
+.. py:function:: protect_buffer(data: bytes, max_payload_size: int) -> bytes
+
+   Ensure the data buffer size does not exceed the maximum allowed payload.
+
+   This function checks the size of the provided data buffer and raises an error 
+   if it exceeds the specified maximum payload size.
+
+   Args:
+       data (bytes): The input data buffer to validate.
+       max_payload_size (int): The maximum number of bytes allowed.
+
+   Returns:
+       bytes: The validated data buffer (unchanged).
+
+   Raises:
+       BufferError: If the data exceeds the max allowed size.
+       TypeError: If the input data is not of type `bytes`.
+
+

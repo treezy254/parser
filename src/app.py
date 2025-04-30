@@ -12,12 +12,24 @@ logger = logging.getLogger(__name__)
 
 
 class AppService:
+    """
+    Application service layer responsible for handling search queries,
+    managing logs, and interacting with storage and logging repositories.
+    """
+
     def __init__(
         self,
         log_repo: LogRepository,
         storage_repo: StorageRepository,
         config: Config
     ) -> None:
+        """
+        Initialize the AppService with required dependencies.
+
+        :param log_repo: Repository for persisting and retrieving logs
+        :param storage_repo: Repository for data storage and search logic
+        :param config: Application configuration instance
+        """
         self.log_repo = log_repo
         self.storage_repo = storage_repo
         self.config = config
@@ -28,26 +40,32 @@ class AppService:
         self.file_path: str = file_config.get('linuxpath', '')
         self.reread_on_query: bool = server_config.get('reread_on_query', False)
         self.search_mode: str = server_config.get('search_mode', 'naive')
-        
-        # Validate file path exists early to prevent issues
+
+        # Validate file path at initialization
         self._validate_file_path()
 
     def _validate_file_path(self) -> None:
-        """Validate that the data file exists and log warnings if not."""
+        """
+        Ensure the configured file path is absolute and exists.
+        Logs warnings if issues are detected.
+        """
         if not self.file_path:
             logger.warning("No file path configured. Search operations will fail.")
             return
-            
-        # Convert to absolute path if it's relative
+
+        # Convert relative path to absolute
         if not os.path.isabs(self.file_path):
-            # Adjust path based on current working directory
             absolute_path = os.path.abspath(os.path.join(os.getcwd(), self.file_path))
-            logger.info(f"Converting relative path '{self.file_path}' to absolute path '{absolute_path}'")
+            logger.info(
+                f"Converting relative path '{self.file_path}' to absolute path '{absolute_path}'"
+            )
             self.file_path = absolute_path
-            
+
+        # Check if file exists
         if not os.path.exists(self.file_path):
             logger.warning(f"Data file not found at path: {self.file_path}")
-            # Try searching in parent directories
+
+            # Attempt to find file in parent directory
             parent_dir = os.path.dirname(os.getcwd())
             alternative_path = os.path.join(parent_dir, self.file_path)
             if os.path.exists(alternative_path):
@@ -55,8 +73,16 @@ class AppService:
                 self.file_path = alternative_path
 
     def create_log(self, requesting_ip: str, query_string: str, algo_name: str) -> Dict[str, Optional[str]]:
+        """
+        Process a query, perform search, and log the results.
+
+        :param requesting_ip: IP address of the requester
+        :param query_string: The search query string
+        :param algo_name: Algorithm name used for searching
+        :return: A dictionary containing log information and status
+        """
         try:
-            # Reload file if configured to do so, or if data is not already loaded
+            # Reload data file if needed
             if self.reread_on_query or self.storage_repo.data is None:
                 file_loaded = self.storage_repo.load_file(self.file_path)
                 if not file_loaded:
@@ -71,7 +97,6 @@ class AppService:
                         "error": f"Data file not found or couldn't be loaded: {self.file_path}"
                     }
 
-            # Only proceed if data is loaded
             if self.storage_repo.data is None:
                 logger.error("No data loaded in storage repository")
                 return {
@@ -98,8 +123,6 @@ class AppService:
                     "error": f"Failed to prepare storage: {str(e)}"
                 }
 
-            found: Optional[str]
-            exec_time: Optional[float]
             try:
                 found, exec_time = self.storage_repo.search(query_string)
             except Exception as e:
@@ -114,8 +137,8 @@ class AppService:
                     "error": f"Search operation failed: {str(e)}"
                 }
 
-            # Create log
-            log = Log(id=str(uuid.uuid4()), query=query_string, requesting_ip=requesting_ip) 
+            # Create and persist log
+            log = Log(id=str(uuid.uuid4()), query=query_string, requesting_ip=requesting_ip)
             log.create(found=found, exec_time=exec_time)
             self.log_repo.create_log(log)
 
@@ -125,11 +148,11 @@ class AppService:
                 "requesting_ip": log.requesting_ip,
                 "execution_time": log.execution_time,
                 "timestamp": log.timestamp.isoformat(),
-                "status": "success" if found else "not_found"  # Fixed status logic
+                "status": "success" if found else "not_found"
             }
 
         except Exception as e:
-            logger.exception(f"Failed to create log: {e}")
+            logger.exception("Failed to create log")
             return {
                 "id": None,
                 "query": query_string,
@@ -141,6 +164,11 @@ class AppService:
             }
 
     def read_logs(self) -> List[Dict[str, Optional[str]]]:
+        """
+        Retrieve all logs from the log repository.
+
+        :return: List of log entries as dictionaries
+        """
         try:
             return self.log_repo.read_logs()
         except Exception as e:
@@ -149,8 +177,11 @@ class AppService:
 
     def create_logs_parallel(self, requests: List[Dict[str, str]]) -> List[Dict[str, Optional[str]]]:
         """
-        Create logs in parallel using multithreading.
-        Each request must be a dict with 'requesting_ip', 'query_string', 'algo_name'
+        Create logs in parallel using a thread pool for performance.
+
+        :param requests: List of request dicts, each containing:
+                         'requesting_ip', 'query_string', and 'algo_name'
+        :return: List of log results with success/error statuses
         """
         results: List[Dict[str, Optional[str]]] = []
 
@@ -170,10 +201,11 @@ class AppService:
                     results.append(result)
                 except Exception as e:
                     logger.exception("Error processing log request")
+                    req = futures[future]
                     results.append({
                         "id": None,
-                        "query": futures[future]['query_string'],
-                        "requesting_ip": futures[future]['requesting_ip'],
+                        "query": req['query_string'],
+                        "requesting_ip": req['requesting_ip'],
                         "execution_time": None,
                         "timestamp": None,
                         "status": "error",

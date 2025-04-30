@@ -1,0 +1,212 @@
+src.repositories
+================
+
+.. py:module:: src.repositories
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   src.repositories.logger
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   src.repositories.LogRepository
+   src.repositories.StorageRepository
+
+
+Module Contents
+---------------
+
+.. py:data:: logger
+
+.. py:class:: LogRepository(filepath: Optional[pathlib.Path] = None)
+
+   Handles persistence of Log objects to a JSON file.
+
+   Supports basic CRUD operations on logs stored as JSON entries in a file.
+   Thread-safe using a lock for write operations.
+
+
+   .. py:attribute:: filepath
+      :type:  pathlib.Path
+      :value: None
+
+
+
+   .. py:attribute:: _lock
+
+
+   .. py:method:: _ensure_file() -> None
+
+      Ensures the log file exists. Creates it if not found.
+
+
+
+   .. py:method:: create_log(log: models.Log) -> None
+
+      Appends a new log entry to the file.
+
+      Args:
+          log (Log): The log instance to persist.
+
+
+
+   .. py:method:: read_logs() -> List[Dict]
+
+      Reads all log entries from the file.
+
+      Returns:
+          List[Dict]: List of logs as dictionaries.
+
+
+
+   .. py:method:: update_log(log_id: str, updates: Dict) -> bool
+
+      Updates a log entry by ID.
+
+      Args:
+          log_id (str): ID of the log to update.
+          updates (Dict): Dictionary of fields to update.
+
+      Returns:
+          bool: True if log was updated, False otherwise.
+
+
+
+   .. py:method:: delete_log(log_id: str) -> bool
+
+      Deletes a log entry by ID.
+
+      Args:
+          log_id (str): ID of the log to delete.
+
+      Returns:
+          bool: True if deletion was successful, False otherwise.
+
+
+
+.. py:class:: StorageRepository
+
+   Handles data loading and searching with multiple search modes.
+
+   Supports naive, set, dictionary, index map, binary search, and trie search.
+
+
+   .. py:attribute:: data
+      :type:  Optional[List[str]]
+      :value: None
+
+
+
+   .. py:attribute:: search_data
+      :type:  Optional[object]
+      :value: None
+
+
+
+   .. py:attribute:: mode
+      :type:  str
+      :value: 'naive'
+
+
+
+   .. py:attribute:: last_loaded_file
+      :type:  Optional[str]
+      :value: None
+
+
+
+   .. py:method:: load_file(filepath: str) -> bool
+
+      Loads data (line-by-line) from a file.
+
+      Args:
+          filepath (str): Path to the file.
+
+      Returns:
+          bool: True if successfully loaded, else False.
+
+
+
+   .. py:method:: prepare(mode: str = 'naive') -> None
+
+      Prepares the data structure for searching.
+
+      Args:
+          mode (str): One of ['naive', 'set', 'dict', 'index_map', 'binary', 'trie'].
+
+      Raises:
+          ValueError: If data has not been loaded.
+
+
+
+   .. py:method:: _build_trie(words: List[str]) -> Dict
+
+      Builds a trie data structure from a list of words.
+
+      Args:
+          words (List[str]): Words to include in trie.
+
+      Returns:
+          Dict: Trie structure.
+
+
+
+   .. py:method:: search(target: str) -> Tuple[bool, float]
+
+      Searches for a word using the currently prepared mode.
+
+      Args:
+          target (str): Word to search.
+
+      Returns:
+          Tuple[bool, float]: (Found or not, time taken in seconds)
+
+      Raises:
+          ValueError: If search data has not been prepared.
+
+
+
+   .. py:method:: naive_search(target: str) -> bool
+
+      Naive linear search.
+
+
+
+   .. py:method:: set_search(target: str) -> bool
+
+      Search using a set.
+
+
+
+   .. py:method:: dict_search(target: str) -> bool
+
+      Search using a dictionary.
+
+
+
+   .. py:method:: index_map_search(target: str) -> bool
+
+      Search values in an index map.
+
+
+
+   .. py:method:: binary_search(target: str) -> bool
+
+      Binary search (requires sorted list).
+
+
+
+   .. py:method:: trie_search(target: str) -> bool
+
+      Search using a trie.
+
+
+

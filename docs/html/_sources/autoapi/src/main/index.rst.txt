@@ -1,0 +1,51 @@
+src.main
+========
+
+.. py:module:: src.main
+
+.. autoapi-nested-parse::
+
+   Server module for handling incoming socket connections securely and processing
+   client requests to interact with logs.
+
+   It initializes configuration, sets up the main socket server with optional SSL,
+   and spawns a new thread to handle each client request using the AppService layer.
+
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   src.main.client_handler
+   src.main.main
+
+
+Module Contents
+---------------
+
+.. py:function:: client_handler(conn: socket.socket, addr: tuple[str, int], app_service: app.AppService, config: config.Config) -> None
+
+   Handles a client connection by reading its request and sending an appropriate response.
+
+   Supports actions like:
+   - 'create_log': stores a query log.
+   - 'read_logs': returns all existing logs.
+
+   Args:
+       conn (socket.socket): Active socket connection to the client.
+       addr (tuple[str, int]): IP address and port of the connected client.
+       app_service (AppService): Core application logic for log handling.
+       config (Config): Configuration object for retrieving server settings.
+
+
+.. py:function:: main() -> None
+
+   Entry point of the server application.
+
+   Initializes configuration, sets up repositories and services, 
+   starts the socket server (optionally with SSL), and begins accepting connections.
+   Each client is handled in a separate daemon thread.
+
+
