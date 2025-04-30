@@ -1,5 +1,3 @@
-
-```bash
 #!/bin/bash
 
 SERVICE_NAME=file-search-server

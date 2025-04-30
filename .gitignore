@@ -12,3 +12,5 @@ Makefile
 conf.py
 create_structure.sh
 
+file-search-server.conf 
+supervisord.log
