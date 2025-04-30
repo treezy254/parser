@@ -6,11 +6,14 @@ It initializes configuration, sets up the main socket server with optional SSL,
 and spawns a new thread to handle each client request using the AppService layer.
 """
 
+import os
 import socket
 import threading
 import json
 import sys
 from typing import Optional
+
+sys.path.append(os.path.abspath("."))
 
 from config import Config
 from repositories import LogRepository, StorageRepository
