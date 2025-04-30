@@ -9,4 +9,6 @@ _templates/
 index.rst
 make.bat
 Makefile
+conf.py
+create_structure.sh
 
