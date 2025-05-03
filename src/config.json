@@ -12,6 +12,6 @@
         "max_payload_size": 4096
     },
     "file": {
-        "linuxpath": "/project/workspace/tests/data/test_data/data10k.txt"
+        "linuxpath": "tests/data/test_data/data10k.txt"
     }
 }
