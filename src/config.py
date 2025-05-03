@@ -2,19 +2,24 @@ import json
 import os
 from typing import Dict, Optional
 
+
 class Config:
     def __init__(self, config_path: Optional[str] = None) -> None:
         """
         Initializes the Config class by loading configuration from a JSON file.
 
         Args:
-            config_path (str, optional): Path to the configuration file. Defaults to None,
-                                          which loads 'config.json' from the current directory.
+            config_path (str, optional): Path to the configuration file.
+            Defaults to None, which loads 'config.json' from the current
+            directory.
 
         Raises:
-            FileNotFoundError: If the specified configuration file doesn't exist.
-            json.JSONDecodeError: If the configuration file is not a valid JSON.
-            KeyError: If expected keys are not found in the loaded configuration.
+            FileNotFoundError: If the specified configuration file doesn't
+            exist.
+            json.JSONDecodeError: If the configuration file is not a valid
+            JSON.
+            KeyError: If expected keys are not found in the loaded
+            configuration.
         """
         if config_path is None:
             # Default config file path

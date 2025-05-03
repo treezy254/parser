@@ -1,14 +1,13 @@
-import uuid
-from datetime import datetime
 import threading
-from typing import Optional, Dict
+from datetime import datetime
+from typing import Optional, Dict, Union
 
 
 class Log:
     """
     A thread-safe log entry for recording query executions.
 
-    This class records details such as query text, requester's IP, 
+    This class records details such as query text, requester's IP,
     execution time, timestamp, and query status.
     """
 
@@ -33,8 +32,9 @@ class Log:
 
     def _set_query(self, query: str) -> None:
         """
-        Safely set the query, ensuring it doesn't exceed 1024 bytes 
-        when UTF-8 encoded. Truncates cleanly at character boundaries if needed.
+        Safely set the query, ensuring it doesn't exceed 1024 bytes
+        when UTF-8 encoded. Truncates cleanly at character boundaries
+        if needed.
 
         Args:
             query (str): The query string to sanitize and store.
@@ -68,7 +68,7 @@ class Log:
             self.execution_time = exec_time
             self.timestamp = datetime.now()
 
-    def to_dict(self) -> Dict[str, Optional[str]]:
+    def to_dict(self) -> Dict[str, Union[str, float, bool, None]]:
         """
         Serialize the log entry into a dictionary format.
 
@@ -80,6 +80,7 @@ class Log:
             "query": self.query,
             "requesting_ip": self.requesting_ip,
             "execution_time": self.execution_time,
-            "timestamp": self.timestamp.isoformat() if self.timestamp else None,
+            "timestamp": self.timestamp.isoformat() \
+                if self.timestamp else None,
             "status": self.status
         }
