@@ -31,9 +31,10 @@ project/ ├── src/ │ └── main.py ├── setup.sh └── READM
 ## ⚙️ Installation
 
 ```bash
-    chmod +x setup.sh
+chmod +x setup.sh
 
-    sudo ./setup.sh
+sudo ./setup.sh
+```
 
 
 
@@ -43,10 +44,12 @@ project/ ├── src/ │ └── main.py ├── setup.sh └── READM
 
 Run all unit tests:
 
-python3 -m unittest discover -s tests/unit
+```
+pytest
+```
 
 ✅ End-to-End Test
 
+```
 python3 tests/e2e.py
-
 ```
