@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Log Interaction Client</title>
+    <style>
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background-color: #f4f4f4;
+        color: #333;
+        margin: 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+
+      h1 {
+        color: #2c3e50;
+        margin-bottom: 20px;
+      }
+
+      form {
+        background-color: #fff;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        width: 80%;
+        max-width: 600px;
+        margin-bottom: 20px;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 8px;
+        color: #555;
+        font-size: 0.9em;
+      }
+
+      textarea {
+        width: 100%;
+        padding: 10px;
+        margin-bottom: 15px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        box-sizing: border-box;
+        font-size: 0.9em;
+        font-family: monospace;
+      }
+
+      button {
+        background-color: #3498db;
+        color: white;
+        padding: 10px 15px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.9em;
+        transition: background-color 0.3s ease;
+      }
+
+      button:hover {
+        background-color: #2980b9;
+      }
+
+      .results-container {
+        background-color: #fff;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        width: 80%;
+        max-width: 800px;
+      }
+
+      h2 {
+        color: #2c3e50;
+        margin-top: 0;
+        border-bottom: 2px solid #eee;
+        padding-bottom: 10px;
+        margin-bottom: 15px;
+        font-size: 1.1em;
+      }
+
+      .log-entry {
+        font-size: 0.85em;
+        color: #444;
+        margin-bottom: 8px;
+        padding: 8px;
+        border-left: 3px solid #ddd;
+        background-color: #f9f9f9;
+        border-radius: 4px;
+        white-space: pre-wrap; /* Preserve formatting */
+        font-family: monospace;
+      }
+
+      .log-entry strong {
+        font-weight: bold;
+        color: #333;
+      }
+
+      .error {
+        color: #c0392b;
+        background-color: #fdecea;
+        padding: 10px;
+        border-radius: 4px;
+        margin-bottom: 15px;
+        font-size: 0.9em;
+      }
+
+      .read-logs-link {
+        margin-top: 20px;
+        font-size: 0.9em;
+        color: #3498db;
+        text-decoration: none;
+        transition: color 0.3s ease;
+      }
+
+      .read-logs-link:hover {
+        color: #2980b9;
+        text-decoration: underline;
+      }
+
+      .debug-label {
+        color: #777;
+        font-style: italic;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Interact with Logs</h1>
+
+    {% if error %}
+    <div class="error">{{ error }}</div>
+    {% endif %}
+
+    <form method="POST">
+      <label for="search_string">Enter string(s) to log (one per line):</label>
+      <textarea id="search_string" name="search_string" rows="5"></textarea>
+      <button type="submit">Log Strings</button>
+    </form>
+
+    {% if results %}
+    <div class="results-container">
+      <h2>Logging Results</h2>
+      {% for result in results %}
+      <div class="log-entry">{{ result }}</div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <a href="/read_logs" class="read-logs-link">View All Logs</a>
+  </body>
+</html>

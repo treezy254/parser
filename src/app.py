@@ -157,7 +157,7 @@ class AppService:
                 "requesting_ip": log.requesting_ip,
                 "execution_time": log.execution_time,
                 "timestamp": timestamp_str,
-                "status": "success" if found else "not_found"
+                "status": "STRING_EXISTS" if found else "STRING_NOT_FOUND"
             }
 
         except Exception as e:

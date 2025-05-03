@@ -11,7 +11,8 @@ import socket
 import threading
 import json
 import sys
-from typing import Optional
+from typing import Optional, Dict, Any
+import datetime
 
 sys.path.append(os.path.abspath("."))
 
@@ -19,6 +20,41 @@ from config import Config
 from repositories import LogRepository, StorageRepository
 from security import secure_socket, protect_buffer
 from app import AppService
+
+
+def format_tcp_response(result: Dict[str, Any]) -> bytes:
+    """
+    Format the response according to requirements:
+    - First line: STRING EXISTS or STRING NOT FOUND with a newline
+    - Additional lines: Debug information with log details
+    
+    Args:
+        result (Dict[str, Any]): The result dictionary from AppService
+        
+    Returns:
+        bytes: Formatted response encoded as bytes
+    """
+    status = result.get('status', 'error')
+    
+    # Determine the main response string
+    if status == "STRING_EXISTS":
+        response_lines = ["STRING EXISTS\n"]
+    elif status == "STRING_NOT_FOUND":
+        response_lines = ["STRING NOT_FOUND\n"]
+    else:
+        # For error cases
+        response_lines = [f"ERROR: {result.get('error', 'Unknown error')}\n"]
+    
+    # Add debug information
+    response_lines.append("DEBUG:\n")
+    response_lines.append(f"  Query: {result.get('query', 'N/A')}\n")
+    response_lines.append(f"  Requesting IP: {result.get('requesting_ip', 'N/A')}\n")
+    response_lines.append(f"  Execution Time: {result.get('execution_time', 'N/A')}s\n")
+    response_lines.append(f"  Timestamp: {result.get('timestamp', 'N/A')}\n")
+    response_lines.append(f"  Log ID: {result.get('id', 'N/A')}\n")
+    
+    # Join all lines and encode
+    return ''.join(response_lines).encode()
 
 
 def client_handler(
@@ -62,26 +98,88 @@ def client_handler(
                 query_string=request['query'],
                 algo_name=request['algo']
             )
-            conn.sendall(json.dumps(result).encode())
+            # Format response according to requirements
+            response = format_tcp_response(result)
+            
+            # Print the same response to terminal
+            print("\n" + response.decode(), end="")
+            
+            # Send response to client
+            conn.sendall(response)
 
         elif action == 'read_logs':
             # Handle log retrieval
-            result = app_service.read_logs()
-            conn.sendall(json.dumps(result).encode())
+            logs = app_service.read_logs()
+            
+            # For read_logs, we'll print a more readable format to terminal
+            print("\n[*] Sending log data to client:")
+            for log in logs:
+                print(f"DEBUG:")
+                print(f"  Query: {log.get('query', 'N/A')}")
+                print(f"  Requesting IP: {log.get('requesting_ip', 'N/A')}")
+                print(f"  Execution Time: {log.get('execution_time', 'N/A')}s")
+                print(f"  Timestamp: {log.get('timestamp', 'N/A')}")
+                print(f"  Log ID: {log.get('id', 'N/A')}")
+                print(f"  Status: {log.get('status', 'N/A')}")
+                print("")
+            
+            # For read_logs, we'll send a JSON response since we're returning multiple logs
+            conn.sendall(json.dumps(logs).encode())
 
         else:
             # Invalid action provided by client
-            conn.sendall(json.dumps({'error': 'Invalid action'}).encode())
+            error_result = {
+                'status': 'error',
+                'error': 'Invalid action',
+                'query': request.get('query', 'N/A'),
+                'requesting_ip': addr[0],
+                'timestamp': datetime.datetime.now().isoformat(),
+                'execution_time': 0,
+                'id': None
+            }
+            response = format_tcp_response(error_result)
+            print("\n" + response.decode(), end="")
+            conn.sendall(response)
 
     except json.JSONDecodeError:
-        conn.sendall(json.dumps({'error': 'Invalid JSON format'}).encode())
+        error_result = {
+            'status': 'error',
+            'error': 'Invalid JSON format',
+            'requesting_ip': addr[0],
+            'timestamp': datetime.datetime.now().isoformat(),
+            'execution_time': 0,
+            'id': None
+        }
+        response = format_tcp_response(error_result)
+        print("\n" + response.decode(), end="")
+        conn.sendall(response)
 
     except KeyError as e:
-        conn.sendall(json.dumps({'error': f'Missing key: {str(e)}'}).encode())
+        error_result = {
+            'status': 'error',
+            'error': f'Missing key: {str(e)}',
+            'requesting_ip': addr[0],
+            'timestamp': datetime.datetime.now().isoformat(),
+            'execution_time': 0,
+            'id': None
+        }
+        response = format_tcp_response(error_result)
+        print("\n" + response.decode(), end="")
+        conn.sendall(response)
 
     except Exception as e:
         # Catch-all for unexpected errors
-        conn.sendall(json.dumps({'error': str(e)}).encode())
+        error_result = {
+            'status': 'error',
+            'error': str(e),
+            'requesting_ip': addr[0],
+            'timestamp': datetime.datetime.now().isoformat(),
+            'execution_time': 0,
+            'id': None
+        }
+        response = format_tcp_response(error_result)
+        print("\n" + response.decode(), end="")
+        conn.sendall(response)
 
     finally:
         # Ensure the socket is closed to free up resources
@@ -97,6 +195,11 @@ def main() -> None:
     Each client is handled in a separate daemon thread.
     """
     try:
+        # Configure console output formatting
+        print("\n" + "="*50)
+        print(" String Search Server - TCP Response Format")
+        print("="*50 + "\n")
+        
         config = Config()
         server_conf = config.get_server_config()
 
@@ -114,17 +217,20 @@ def main() -> None:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.bind(('0.0.0.0', port))
         sock.listen(5)
-        print(f"[*] Listening on port {port}...")
+        print(f"[*] Server started. Listening on port {port}...")
 
         # Wrap socket with SSL if configured
         if ssl_enabled:
             sock = secure_socket(sock, certfile, keyfile)
             print("[*] SSL enabled")
+            
+        print("\n[*] Ready to accept connections. Responses will be logged below:")
+        print("-"*50)
 
         # Continuously accept and handle new connections
         while True:
             conn, addr = sock.accept()
-            print(f"[*] Connection from {addr}")
+            print(f"\n[*] New connection from {addr[0]}:{addr[1]}")
 
             # Spawn a new thread to handle the client
             thread = threading.Thread(
