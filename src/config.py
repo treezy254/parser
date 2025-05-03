@@ -23,10 +23,14 @@ class Config:
         """
         if config_path is None:
             # Default config file path
-            config_path = os.path.join(os.path.dirname(__file__), "config.json")
+            config_path = os.path.join(
+                os.path.dirname(__file__), "config.json"
+            )
 
         if not os.path.exists(config_path):
-            raise FileNotFoundError(f"Config file '{config_path}' not found.")
+            raise FileNotFoundError(
+                f"Config file '{config_path}' not found."
+            )
 
         try:
             with open(config_path, "r") as f:
@@ -40,7 +44,10 @@ class Config:
 
         # Validate required keys in server_config and file_config
         if not self._file_config or not self._server_config:
-            raise KeyError("Missing required sections in the config file: 'file_config' or 'server_config'")
+            raise KeyError(
+                "Missing required sections in the config file: "
+                "'file_config' or 'server_config'"
+            )
 
     def get_file_config(self) -> Dict[str, str]:
         """

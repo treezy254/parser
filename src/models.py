@@ -80,7 +80,8 @@ class Log:
             "query": self.query,
             "requesting_ip": self.requesting_ip,
             "execution_time": self.execution_time,
-            "timestamp": self.timestamp.isoformat() \
-                if self.timestamp else None,
+            "timestamp": (
+                self.timestamp.isoformat() if self.timestamp else None
+            ),
             "status": self.status
         }

@@ -5,7 +5,7 @@ import threading
 import logging
 from pathlib import Path
 from typing import List, Optional, Tuple, Dict, Callable, cast, Any, Set, Union
-from models import Log  # Assumes Log is a dataclass or class with an 'id' attribute
+from models import Log
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -24,7 +24,8 @@ class LogRepository:
         Initializes the LogRepository with a given or default file path.
 
         Args:
-            filepath (Optional[Path]): Custom path for the JSON file. If None, uses default path.
+            filepath (Optional[Path]): Custom path for the JSON file.
+            If None, uses default path.
         """
         if filepath is None:
             ROOT_DIR = Path(__file__).resolve().parents[1]
@@ -168,7 +169,10 @@ class StorageRepository:
             os.path.abspath(filepath),
             os.path.join(os.getcwd(), filepath),
             os.path.join(os.path.dirname(os.getcwd()), filepath),
-            os.path.join(os.path.dirname(os.getcwd()), os.path.basename(filepath)),
+            os.path.join(
+                os.path.dirname(os.getcwd()),
+                os.path.basename(filepath)
+            )
         ]
 
         for path in search_paths:
@@ -194,7 +198,8 @@ class StorageRepository:
         # Safely cast self.data to List[str] since we've checked it's not None
         data: List[str] = self.data
 
-        self.mode = mode if mode in ['set', 'dict', 'index_map', 'binary', 'trie', 'naive'] else 'naive'
+        valid_modes = ['set', 'dict', 'index_map', 'binary', 'trie', 'naive']
+        self.mode = mode if mode in valid_modes else 'naive'
 
         mode_map: Dict[str, Callable[[], SearchDataType]] = {
             'set': lambda: set(data),
@@ -207,7 +212,10 @@ class StorageRepository:
 
         try:
             self.search_data = mode_map.get(self.mode, mode_map['naive'])()
-            logger.info(f"Prepared search mode '{self.mode}' with {len(data)} items.")
+            logger.info(
+                f"Prepared search mode '{self.mode}' "
+                f"with {len(data)} items."
+            )
         except Exception as e:
             logger.exception(f"Error preparing search mode '{self.mode}': {e}")
             self.mode = 'naive'
@@ -260,7 +268,10 @@ class StorageRepository:
         end = time.perf_counter()
         execution_time = end - start
 
-        logger.info(f"Search '{target}' with mode '{self.mode}' took {execution_time:.6f}s. Found: {result}")
+        logger.info(
+            f"Search '{target}' with mode '{self.mode}' "
+            f"took {execution_time:.6f}s. Found: {result}"
+        )
         return result, execution_time
 
     # --- Search implementations below ---

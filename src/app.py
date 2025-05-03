@@ -39,7 +39,9 @@ class AppService:
 
         self.file_path: str = file_config.get('linuxpath', '')
         # Fix 1: Explicitly convert to boolean
-        self.reread_on_query: bool = bool(server_config.get('reread_on_query', False))
+        self.reread_on_query: bool = bool(
+            server_config.get('reread_on_query', False)
+        )
         self.search_mode: str = server_config.get('search_mode', 'naive')
 
         # Validate file path at initialization
@@ -51,31 +53,45 @@ class AppService:
         Logs warnings if issues are detected.
         """
         if not self.file_path:
-            logger.warning("No file path configured. Search operations will fail.")
+            logger.warning(
+                "No file path configured. Search operations will fail."
+            )
             return
 
         # Convert relative path to absolute
         if not os.path.isabs(self.file_path):
             # Use the project root directory
-            project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+            project_root = os.path.abspath(
+                os.path.join(os.path.dirname(__file__), "..")
+            )
             absolute_path = os.path.join(project_root, self.file_path)
             logger.info(
-                f"Converting relative path '{self.file_path}' to absolute path '{absolute_path}'"
+                (
+                    f"Converting relative path '{self.file_path}' "
+                    f"to absolute path '{absolute_path}'"
+                )
             )
             self.file_path = absolute_path
-    
+
         # Check if file exists
         if not os.path.exists(self.file_path):
             logger.warning(f"Data file not found at path: {self.file_path}")
-    
+
             # Attempt to find the file in the parent directory
-            parent_dir = os.path.dirname(os.getcwd())  # Current directory where the code is run from
+            parent_dir = os.path.dirname(os.getcwd())
             alternative_path = os.path.join(parent_dir, self.file_path)
             if os.path.exists(alternative_path):
-                logger.info(f"Found data file in parent directory: {alternative_path}")
+                logger.info(
+                    f"Found data file in parent directory: {alternative_path}"
+                )
                 self.file_path = alternative_path
 
-    def create_log(self, requesting_ip: str, query_string: str, algo_name: str) -> Dict[str, Optional[Union[str, float]]]:
+    def create_log(
+        self,
+        requesting_ip: str,
+        query_string: str,
+        algo_name: str
+    ) -> Dict[str, Optional[Union[str, float]]]:
         """
         Process a query, perform search, and log the results.
 
@@ -87,7 +103,7 @@ class AppService:
         try:
             # Initialize log with None to ensure it's defined in all code paths
             log = None
-            
+
             # Reload data file if needed
             if self.reread_on_query or self.storage_repo.data is None:
                 file_loaded = self.storage_repo.load_file(self.file_path)
@@ -100,7 +116,12 @@ class AppService:
                         "execution_time": None,
                         "timestamp": None,
                         "status": "error",
-                        "error": f"Data file not found or couldn't be loaded: {self.file_path}"
+                        "error": (
+                            (
+                                f"Data file not found or couldn't be loaded: "
+                                f"{self.file_path}"
+                            )
+                        )
                     }
 
             if self.storage_repo.data is None:
@@ -145,12 +166,20 @@ class AppService:
 
             # Create and persist log
             log_id = str(uuid.uuid4())
-            log = Log(id=log_id, query=query_string, requesting_ip=requesting_ip)
+            log = Log(
+                id=log_id,
+                query=query_string,
+                requesting_ip=requesting_ip
+            )
             log.create(found=found, exec_time=exec_time)
             self.log_repo.create_log(log)
 
             # Safely access timestamp
-            timestamp_str = log.timestamp.isoformat() if hasattr(log, 'timestamp') and log.timestamp is not None else None
+            timestamp_str = (
+                log.timestamp.isoformat()
+                if hasattr(log, 'timestamp') and log.timestamp is not None
+                else None
+            )
 
             # Fix 2: Update return type to include float for execution_time
             return {
@@ -183,10 +212,13 @@ class AppService:
         try:
             return self.log_repo.read_logs()
         except Exception as e:
-            logger.exception("Failed to read logs")
+            logger.exception(f"Failed to read logs: {e}")
             return []
 
-    def create_logs_parallel(self, requests: List[Dict[str, str]]) -> List[Dict[str, Optional[Union[str, float]]]]:
+    def create_logs_parallel(
+        self,
+        requests: List[Dict[str, str]]
+    ) -> List[Dict[str, Optional[Union[str, float]]]]:
         """
         Create logs in parallel using a thread pool for performance.
 
