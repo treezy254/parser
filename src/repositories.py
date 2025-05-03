@@ -4,8 +4,8 @@ import json
 import threading
 import logging
 from pathlib import Path
-from typing import List, Optional, Tuple, Dict, Callable
-from models import Log  # Assumes Log is a dataclass or class with an 'id' attribute
+from typing import List, Optional, Tuple, Dict, Callable, cast, Any, Set, Union
+from models import Log
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -24,7 +24,8 @@ class LogRepository:
         Initializes the LogRepository with a given or default file path.
 
         Args:
-            filepath (Optional[Path]): Custom path for the JSON file. If None, uses default path.
+            filepath (Optional[Path]): Custom path for the JSON file.
+            If None, uses default path.
         """
         if filepath is None:
             ROOT_DIR = Path(__file__).resolve().parents[1]
@@ -128,6 +129,16 @@ class LogRepository:
                 return False
 
 
+# Define search data types
+SearchDataType = Union[
+    List[str],  # For naive and binary search
+    Set[str],   # For set search
+    Dict[str, bool],  # For dict search
+    Dict[int, str],   # For index map search
+    Dict[str, Any]    # For trie search
+]
+
+
 class StorageRepository:
     """
     Handles data loading and searching with multiple search modes.
@@ -137,7 +148,7 @@ class StorageRepository:
 
     def __init__(self) -> None:
         self.data: Optional[List[str]] = None
-        self.search_data: Optional[object] = None
+        self.search_data: Optional[SearchDataType] = None
         self.mode: str = 'naive'
         self.last_loaded_file: Optional[str] = None
 
@@ -158,7 +169,10 @@ class StorageRepository:
             os.path.abspath(filepath),
             os.path.join(os.getcwd(), filepath),
             os.path.join(os.path.dirname(os.getcwd()), filepath),
-            os.path.join(os.path.dirname(os.getcwd()), os.path.basename(filepath)),
+            os.path.join(
+                os.path.dirname(os.getcwd()),
+                os.path.basename(filepath)
+            )
         ]
 
         for path in search_paths:
@@ -175,42 +189,40 @@ class StorageRepository:
         return False
 
     def prepare(self, mode: str = 'naive') -> None:
-        """
-        Prepares the data structure for searching.
-
-        Args:
-            mode (str): One of ['naive', 'set', 'dict', 'index_map', 'binary', 'trie'].
-
-        Raises:
-            ValueError: If data has not been loaded.
-        """
         if self.data is None:
             msg = "No data loaded. Call load_file() first."
             if self.last_loaded_file:
                 msg += f" Last attempt was: {self.last_loaded_file}"
             raise ValueError(msg)
 
-        self.mode = mode if mode in ['set', 'dict', 'index_map', 'binary', 'trie', 'naive'] else 'naive'
+        # Safely cast self.data to List[str] since we've checked it's not None
+        data: List[str] = self.data
 
-        mode_map: Dict[str, Callable[[], object]] = {
-            'set': lambda: set(self.data),
-            'dict': lambda: {word: True for word in self.data},
-            'index_map': lambda: {i: word for i, word in enumerate(self.data)},
-            'binary': lambda: sorted(self.data),
-            'trie': lambda: self._build_trie(self.data),
-            'naive': lambda: self.data,
+        valid_modes = ['set', 'dict', 'index_map', 'binary', 'trie', 'naive']
+        self.mode = mode if mode in valid_modes else 'naive'
+
+        mode_map: Dict[str, Callable[[], SearchDataType]] = {
+            'set': lambda: set(data),
+            'dict': lambda: {word: True for word in data},
+            'index_map': lambda: {i: word for i, word in enumerate(data)},
+            'binary': lambda: sorted(data),
+            'trie': lambda: self._build_trie(data),
+            'naive': lambda: data,
         }
 
         try:
             self.search_data = mode_map.get(self.mode, mode_map['naive'])()
-            logger.info(f"Prepared search mode '{self.mode}' with {len(self.data)} items.")
+            logger.info(
+                f"Prepared search mode '{self.mode}' "
+                f"with {len(data)} items."
+            )
         except Exception as e:
             logger.exception(f"Error preparing search mode '{self.mode}': {e}")
             self.mode = 'naive'
-            self.search_data = self.data
+            self.search_data = data
             logger.info("Falling back to 'naive' mode.")
 
-    def _build_trie(self, words: List[str]) -> Dict:
+    def _build_trie(self, words: List[str]) -> Dict[str, Any]:
         """
         Builds a trie data structure from a list of words.
 
@@ -218,9 +230,9 @@ class StorageRepository:
             words (List[str]): Words to include in trie.
 
         Returns:
-            Dict: Trie structure.
+            Dict[str, Any]: Trie structure.
         """
-        trie: Dict[str, dict] = {}
+        trie: Dict[str, Any] = {}
         for word in words:
             if not word:
                 continue
@@ -256,30 +268,42 @@ class StorageRepository:
         end = time.perf_counter()
         execution_time = end - start
 
-        logger.info(f"Search '{target}' with mode '{self.mode}' took {execution_time:.6f}s. Found: {result}")
+        logger.info(
+            f"Search '{target}' with mode '{self.mode}' "
+            f"took {execution_time:.6f}s. Found: {result}"
+        )
         return result, execution_time
 
     # --- Search implementations below ---
 
     def naive_search(self, target: str) -> bool:
         """Naive linear search."""
-        return target in self.search_data
+        assert self.search_data is not None
+        data = cast(List[str], self.search_data)
+        return target in data
 
     def set_search(self, target: str) -> bool:
         """Search using a set."""
-        return target in self.search_data
+        assert self.search_data is not None
+        data = cast(Set[str], self.search_data)
+        return target in data
 
     def dict_search(self, target: str) -> bool:
         """Search using a dictionary."""
-        return target in self.search_data
+        assert self.search_data is not None
+        data = cast(Dict[str, bool], self.search_data)
+        return target in data
 
     def index_map_search(self, target: str) -> bool:
         """Search values in an index map."""
-        return target in self.search_data.values()
+        assert self.search_data is not None
+        data = cast(Dict[int, str], self.search_data)
+        return target in data.values()
 
     def binary_search(self, target: str) -> bool:
         """Binary search (requires sorted list)."""
-        data: List[str] = self.search_data  # type: ignore
+        assert self.search_data is not None
+        data = cast(List[str], self.search_data)
         low, high = 0, len(data) - 1
         while low <= high:
             mid = (low + high) // 2
@@ -293,7 +317,8 @@ class StorageRepository:
 
     def trie_search(self, target: str) -> bool:
         """Search using a trie."""
-        node: Dict = self.search_data  # type: ignore
+        assert self.search_data is not None
+        node = cast(Dict[str, Any], self.search_data)
         for char in target:
             if char not in node:
                 return False
