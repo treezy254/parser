@@ -61,7 +61,7 @@ class TestAppService(unittest.TestCase):
             self.assertEqual(result["id"], "test-uuid")
             self.assertEqual(result["query"], "test query")
             self.assertEqual(result["requesting_ip"], "127.0.0.1")
-            self.assertEqual(result["status"], "success")
+            self.assertEqual(result["status"], "STRING_EXISTS")
             self.assertIsNotNone(result["timestamp"])
 
     def test_create_log_load_file_failure(self):

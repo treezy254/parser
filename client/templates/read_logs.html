@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>View Logs</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f4f4;
+            color: #333;
+            margin: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+
+        .logs-container {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            width: 80%;
+            max-width: 800px;
+        }
+
+        h2 {
+            color: #2c3e50;
+            margin-top: 0;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+        }
+
+        .log-entry {
+            font-size: 0.85em;
+            color: #444;
+            margin-bottom: 8px;
+            padding: 8px;
+            border-left: 3px solid #ddd;
+            background-color: #f9f9f9;
+            border-radius: 4px;
+            white-space: pre-wrap; /* Preserve formatting */
+            font-family: monospace;
+        }
+
+        .log-entry strong {
+            font-weight: bold;
+            color: #333;
+        }
+
+        .error {
+            color: #c0392b;
+            background-color: #fdecea;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            font-size: 0.9em;
+        }
+
+        .back-link {
+            margin-top: 20px;
+            font-size: 0.9em;
+            color: #3498db;
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        .back-link:hover {
+            color: #2980b9;
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <h1>All Logs</h1>
+
+    {% if error %}
+    <div class="error">{{ error }}</div>
+    {% endif %}
+
+    {% if logs %}
+    <div class="logs-container">
+        <h2>Log Entries</h2>
+        {% for log in logs %}
+            <div class="log-entry">
+                <strong>[DEBUG]</strong> string: {{ log.query }}, status: {{ log.status }}, execution_time: {{ log.execution_time }}s, timestamp: {{ log.timestamp }}
+            </div>
+        {% endfor %}
+    </div>
+    {% else %}
+        {% if not error %}
+        <p>No logs available.</p>
+        {% endif %}
+    {% endif %}
+
+    <a href="/" class="back-link">Go back to logging</a>
+
+</body>
+</html>
