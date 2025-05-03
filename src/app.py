@@ -52,21 +52,23 @@ class AppService:
         if not self.file_path:
             logger.warning("No file path configured. Search operations will fail.")
             return
-
+    
         # Convert relative path to absolute
         if not os.path.isabs(self.file_path):
-            absolute_path = os.path.abspath(os.path.join(os.getcwd(), self.file_path))
+            # Use the project root directory
+            project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))  # Adjust if needed
+            absolute_path = os.path.join(project_root, self.file_path)
             logger.info(
                 f"Converting relative path '{self.file_path}' to absolute path '{absolute_path}'"
             )
             self.file_path = absolute_path
-
+    
         # Check if file exists
         if not os.path.exists(self.file_path):
             logger.warning(f"Data file not found at path: {self.file_path}")
-
-            # Attempt to find file in parent directory
-            parent_dir = os.path.dirname(os.getcwd())
+    
+            # Attempt to find the file in the parent directory
+            parent_dir = os.path.dirname(os.getcwd())  # Current directory where the code is run from
             alternative_path = os.path.join(parent_dir, self.file_path)
             if os.path.exists(alternative_path):
                 logger.info(f"Found data file in parent directory: {alternative_path}")
