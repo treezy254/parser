@@ -1,121 +1,125 @@
-from typing import List, Dict, Optional
-import uuid
-import logging
-from concurrent.futures import ThreadPoolExecutor, as_completed
+import unittest
+from unittest.mock import MagicMock, patch
+from datetime import datetime
+from app import AppService 
+from models import Log
 
-from repositories import LogRepository, StorageRepository
-from config import Config
-from models import Log  # Assuming the `Log` model is defined in a `models` module
+class TestAppService(unittest.TestCase):
+    def setUp(self):
+        # Mock dependencies
+        self.mock_log_repo = MagicMock()
+        self.mock_storage_repo = MagicMock()
+        self.mock_config = MagicMock()
 
-logger = logging.getLogger(__name__)
+        self.mock_config.get_file_config.return_value = {'linuxpath': 'data.txt'}
+        self.mock_config.get_server_config.return_value = {
+            'reread_on_query': False,
+            'search_mode': 'naive'
+        }
 
+        # Patch os.path.exists to simulate file existence
+        patcher = patch('os.path.exists', return_value=True)
+        self.addCleanup(patcher.stop)
+        self.mock_exists = patcher.start()
 
-class AppService:
-    def __init__(
-        self,
-        log_repo: LogRepository,
-        storage_repo: StorageRepository,
-        config: Config
-    ) -> None:
-        self.log_repo = log_repo
-        self.storage_repo = storage_repo
-        self.config = config
+        self.service = AppService(
+            log_repo=self.mock_log_repo,
+            storage_repo=self.mock_storage_repo,
+            config=self.mock_config
+        )
 
-        file_config = self.config.get_file_config()
-        server_config = self.config.get_server_config()
+    def test_create_log_success(self):
+        # Setup mocks
+        self.mock_storage_repo.data = "some_data"
+        self.mock_storage_repo.load_file.return_value = True
+        self.mock_storage_repo.prepare.return_value = None
+        self.mock_storage_repo.search.return_value = ("result", 0.123)
 
-        self.file_path: str = file_config.get('linuxpath', '')
-        self.reread_on_query: bool = server_config.get('reread_on_query', False)
-        self.search_mode: str = server_config.get('search_mode', 'naive')
+        # Patch uuid and timestamp
+        with patch("uuid.uuid4", return_value="test-uuid"), \
+             patch("models.Log.create") as mock_log_create:
 
-    def create_log(self, requesting_ip: str, query_string: str, algo_name: str) -> Dict[str, Optional[str]]:
-        try:
-            # Reload file if configured to do so, or if data is not already loaded
-            if self.reread_on_query or self.storage_repo.data is None:
-                self.storage_repo.load_file(self.file_path)
+            result = self.service.create_log("127.0.0.1", "test query", "naive")
 
-            self.storage_repo.prepare(mode=algo_name)
+            self.assertEqual(result["id"], "test-uuid")
+            self.assertEqual(result["query"], "test query")
+            self.assertEqual(result["requesting_ip"], "127.0.0.1")
+            self.assertEqual(result["status"], "success")
 
-            found: Optional[str]
-            exec_time: Optional[float]
-            try:
-                found, exec_time = self.storage_repo.search(query_string)
-            except Exception as e:
-                logger.exception("Search failed: %s", e)
-                return {
-                    "id": None,
-                    "query": query_string,
-                    "requesting_ip": requesting_ip,
-                    "execution_time": None,
-                    "timestamp": None,
-                    "status": "error"
-                }
+    def test_create_log_load_file_failure(self):
+        self.mock_storage_repo.data = None
+        self.mock_storage_repo.load_file.return_value = False
 
-            # Create log
-            log = Log(id=str(uuid.uuid4()), query=query_string, requesting_ip=requesting_ip) 
-            log.create(found=found, exec_time=exec_time)
-            self.log_repo.create_log(log)
+        result = self.service.create_log("127.0.0.1", "query", "naive")
 
-            return {
-                "id": log.id,
-                "query": log.query,
-                "requesting_ip": log.requesting_ip,
-                "execution_time": log.execution_time,
-                "timestamp": log.timestamp.isoformat(),
-                "status": found  # Use the search result as status
-            }
+        self.assertEqual(result["status"], "error")
+        self.assertIn("couldn't be loaded", result["error"])
 
-        except Exception as e:
-            logger.exception("Failed to create log")
-            return {
-                "id": None,
-                "query": query_string,
-                "requesting_ip": requesting_ip,
-                "execution_time": None,
-                "timestamp": None,
-                "status": "error"
-            }
+    def test_create_log_no_data_loaded(self):
+        self.mock_storage_repo.data = None
+        self.mock_storage_repo.load_file.return_value = True  # even if file loaded, still None
 
-    def read_logs(self) -> List[Dict[str, Optional[str]]]:
-        try:
-            return self.log_repo.read_logs()
-        except Exception as e:
-            logger.exception("Failed to read logs")
-            return []
+        result = self.service.create_log("127.0.0.1", "query", "naive")
 
-    def create_logs_parallel(self, requests: List[Dict[str, str]]) -> List[Dict[str, Optional[str]]]:
-        """
-        Create logs in parallel using multithreading.
-        Each request must be a dict with 'requesting_ip', 'query_string', 'algo_name'
-        """
-        results: List[Dict[str, Optional[str]]] = []
+        self.assertEqual(result["status"], "error")
+        self.assertIn("No data loaded", result["error"])
 
-        with ThreadPoolExecutor() as executor:
-            futures = {
-                executor.submit(
-                    self.create_log,
-                    req['requesting_ip'],
-                    req['query_string'],
-                    req['algo_name']
-                ): req for req in requests
-            }
+    def test_create_log_prepare_raises_value_error(self):
+        self.mock_storage_repo.data = "some_data"
+        self.mock_storage_repo.load_file.return_value = True
+        self.mock_storage_repo.prepare.side_effect = ValueError("invalid algo")
 
-            for future in as_completed(futures):
-                try:
-                    result = future.result()
-                    # Update status to match test expectations ('Found' with capital F)
-                    if result['status'] == 'found':
-                        result['status'] = 'Found'
-                    results.append(result)
-                except Exception as e:
-                    logger.exception("Error processing log request")
-                    results.append({
-                        "id": None,
-                        "query": futures[future]['query_string'],
-                        "requesting_ip": futures[future]['requesting_ip'],
-                        "execution_time": None,
-                        "timestamp": None,
-                        "status": "error"
-                    })
+        result = self.service.create_log("127.0.0.1", "query", "naive")
 
-        return results
+        self.assertEqual(result["status"], "error")
+        self.assertIn("Failed to prepare storage", result["error"])
+
+    def test_create_log_search_raises_exception(self):
+        self.mock_storage_repo.data = "some_data"
+        self.mock_storage_repo.load_file.return_value = True
+        self.mock_storage_repo.prepare.return_value = None
+        self.mock_storage_repo.search.side_effect = Exception("search failed")
+
+        result = self.service.create_log("127.0.0.1", "query", "naive")
+
+        self.assertEqual(result["status"], "error")
+        self.assertIn("Search operation failed", result["error"])
+
+    def test_read_logs_success(self):
+        self.mock_log_repo.read_logs.return_value = [{"id": "1", "query": "x"}]
+        result = self.service.read_logs()
+        self.assertEqual(result, [{"id": "1", "query": "x"}])
+
+    def test_read_logs_failure(self):
+        self.mock_log_repo.read_logs.side_effect = Exception("read error")
+        result = self.service.read_logs()
+        self.assertEqual(result, [])
+
+    def test_create_logs_parallel_mixed_results(self):
+        self.mock_storage_repo.data = "some_data"
+        self.mock_storage_repo.load_file.return_value = True
+        self.mock_storage_repo.prepare.return_value = None
+        self.mock_storage_repo.search.side_effect = [("result", 0.123), Exception("fail")]
+
+        with patch("uuid.uuid4", side_effect=["uuid-1", "uuid-2"]), \
+             patch("models.Log.create"):
+            requests = [
+                {"requesting_ip": "ip1", "query_string": "q1", "algo_name": "naive"},
+                {"requesting_ip": "ip2", "query_string": "q2", "algo_name": "naive"}
+            ]
+
+            result = self.service.create_logs_parallel(requests)
+            self.assertEqual(len(result), 2)
+            self.assertTrue(any(r["status"] == "success" for r in result))
+            self.assertTrue(any(r["status"] == "error" for r in result))
+
+    def test_validate_file_path_relative_converted(self):
+        # Patch os.getcwd and os.path.isabs
+        with patch("os.getcwd", return_value="/home/user/project"), \
+             patch("os.path.isabs", return_value=False), \
+             patch("os.path.abspath", return_value="/home/user/project/data.txt"):
+            self.service._validate_file_path()
+            self.assertTrue(self.service.file_path.endswith("data.txt"))
+
+if __name__ == '__main__':
+    unittest.main()
