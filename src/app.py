@@ -82,6 +82,9 @@ class AppService:
         :return: A dictionary containing log information and status
         """
         try:
+            # Initialize log with None to ensure it's defined in all code paths
+            log = None
+            
             # Reload data file if needed
             if self.reread_on_query or self.storage_repo.data is None:
                 file_loaded = self.storage_repo.load_file(self.file_path)
@@ -138,17 +141,21 @@ class AppService:
                 }
 
             # Create and persist log
-            log = Log(id=str(uuid.uuid4()), query=query_string, requesting_ip=requesting_ip)
+            log_id = str(uuid.uuid4())
+            log = Log(id=log_id, query=query_string, requesting_ip=requesting_ip)
             log.create(found=found, exec_time=exec_time)
             self.log_repo.create_log(log)
+
+            # Safely access timestamp
+            timestamp_str = log.timestamp.isoformat() if hasattr(log, 'timestamp') and log.timestamp is not None else None
 
             return {
                 "id": log.id,
                 "query": log.query,
                 "requesting_ip": log.requesting_ip,
                 "execution_time": log.execution_time,
-                "timestamp": log.timestamp.isoformat(),
-                "status": "STRING EXISTS" if found else "STRING NOT FOUND"
+                "timestamp": timestamp_str,
+                "status": "success" if found else "not_found"
             }
 
         except Exception as e:
