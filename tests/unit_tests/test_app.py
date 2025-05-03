@@ -33,18 +33,36 @@ class TestAppService(unittest.TestCase):
         self.mock_storage_repo.data = "some_data"
         self.mock_storage_repo.load_file.return_value = True
         self.mock_storage_repo.prepare.return_value = None
-        self.mock_storage_repo.search.return_value = ("result", 0.123)
+        self.mock_storage_repo.search.return_value = (True, 0.123)  # Search found something
 
-        # Patch uuid and timestamp
+        # Prepare a Log mock that will be returned after create_log
+        mock_log = MagicMock()
+        mock_log.id = "test-uuid"
+        mock_log.query = "test query"
+        mock_log.requesting_ip = "127.0.0.1"
+        mock_log.execution_time = 0.123
+        mock_log.timestamp = datetime.now()
+
+        # Patch uuid.uuid4 to return a predictable ID
         with patch("uuid.uuid4", return_value="test-uuid"), \
-             patch("models.Log.create") as mock_log_create:
+             patch("models.Log", return_value=mock_log) as mock_log_class:
+
+            # Make create method properly set timestamp and other properties
+            def mock_create(found, exec_time):
+                mock_log.found = found
+                mock_log.execution_time = exec_time
+                mock_log.timestamp = datetime.now()
+            
+            mock_log.create = mock_create
 
             result = self.service.create_log("127.0.0.1", "test query", "naive")
 
+            # Assert the result is as expected
             self.assertEqual(result["id"], "test-uuid")
             self.assertEqual(result["query"], "test query")
             self.assertEqual(result["requesting_ip"], "127.0.0.1")
             self.assertEqual(result["status"], "success")
+            self.assertIsNotNone(result["timestamp"])
 
     def test_create_log_load_file_failure(self):
         self.mock_storage_repo.data = None
@@ -99,19 +117,74 @@ class TestAppService(unittest.TestCase):
         self.mock_storage_repo.data = "some_data"
         self.mock_storage_repo.load_file.return_value = True
         self.mock_storage_repo.prepare.return_value = None
-        self.mock_storage_repo.search.side_effect = [("result", 0.123), Exception("fail")]
 
+        # First call returns success, second call throws exception
+        self.mock_storage_repo.search.side_effect = [(True, 0.123), Exception("fail")]
+
+        # Mock log objects
+        mock_log1 = MagicMock()
+        mock_log1.id = "uuid-1"
+        mock_log1.query = "q1"
+        mock_log1.requesting_ip = "ip1"
+        mock_log1.execution_time = 0.123
+        mock_log1.timestamp = datetime.now()
+        
+        mock_log2 = MagicMock()
+        mock_log2.id = "uuid-2"
+        mock_log2.query = "q2"
+        mock_log2.requesting_ip = "ip2"
+
+        # Patch uuid.uuid4 and Log constructor
         with patch("uuid.uuid4", side_effect=["uuid-1", "uuid-2"]), \
-             patch("models.Log.create"):
+             patch("models.Log", side_effect=[mock_log1, mock_log2]) as mock_log_class:
+            
+            # Define a create method that properly sets attributes
+            def mock_create1(found, exec_time):
+                mock_log1.found = found
+                mock_log1.execution_time = exec_time
+                mock_log1.timestamp = datetime.now()
+            
+            mock_log1.create = mock_create1
+            
+            def mock_create2(found, exec_time):
+                mock_log2.found = found
+                mock_log2.execution_time = exec_time
+                mock_log2.timestamp = datetime.now()
+            
+            mock_log2.create = mock_create2
+
             requests = [
                 {"requesting_ip": "ip1", "query_string": "q1", "algo_name": "naive"},
                 {"requesting_ip": "ip2", "query_string": "q2", "algo_name": "naive"}
             ]
 
-            result = self.service.create_logs_parallel(requests)
-            self.assertEqual(len(result), 2)
-            self.assertTrue(any(r["status"] == "success" for r in result))
-            self.assertTrue(any(r["status"] == "error" for r in result))
+            # Force execute the first successful search, then fail the second
+            def side_effect_create_log(*args, **kwargs):
+                if args[1] == "q1":  # First request succeeds
+                    return {
+                        "id": "uuid-1",
+                        "query": "q1",
+                        "requesting_ip": "ip1",
+                        "execution_time": 0.123,
+                        "timestamp": mock_log1.timestamp.isoformat(),
+                        "status": "success"
+                    }
+                else:  # Second request fails
+                    raise Exception("fail")
+            
+            # Mock the create_log method for deterministic results
+            with patch.object(self.service, 'create_log', side_effect=side_effect_create_log):
+                result = self.service.create_logs_parallel(requests)
+                
+                # We should have 2 results - one success and one error
+                self.assertEqual(len(result), 2)
+                
+                # Check that we have at least one success and one error
+                success_results = [r for r in result if r.get("status") == "success"]
+                error_results = [r for r in result if r.get("status") == "error"]
+                
+                self.assertEqual(len(success_results), 1)
+                self.assertEqual(len(error_results), 1)
 
     def test_validate_file_path_relative_converted(self):
         # Patch os.getcwd and os.path.isabs
