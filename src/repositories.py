@@ -151,42 +151,40 @@ class StorageRepository:
         self.search_data: Optional[SearchDataType] = None
         self.mode: str = 'naive'
         self.last_loaded_file: Optional[str] = None
+        self.max_rows = 250_000
 
     def load_file(self, filepath: str) -> bool:
         """
-        Loads data (line-by-line) from a file.
-
+        Loads data from a file, enforcing a maximum row limit.
+    
         Args:
             filepath (str): Path to the file.
-
+    
         Returns:
             bool: True if successfully loaded, else False.
         """
-        logger.info(f"Current working directory: {os.getcwd()}")
-
-        search_paths = [
-            filepath,
-            os.path.abspath(filepath),
-            os.path.join(os.getcwd(), filepath),
-            os.path.join(os.path.dirname(os.getcwd()), filepath),
-            os.path.join(
-                os.path.dirname(os.getcwd()),
-                os.path.basename(filepath)
-            )
-        ]
-
-        for path in search_paths:
-            if os.path.exists(path):
-                try:
-                    with open(path, 'r', encoding='utf-8') as f:
-                        self.data = f.read().splitlines()
-                    logger.info(f"Loaded {len(self.data)} lines from {path}")
-                    self.last_loaded_file = path
-                    return True
-                except Exception as e:
-                    logger.exception(f"Error loading found file {path}: {e}")
-        logger.warning(f"File not found. Tried: {search_paths}")
-        return False
+        try:
+            if not os.path.isfile(filepath):
+                logger.error(f"File not found: {filepath}")
+                return False
+    
+            with open(filepath, 'r', encoding='utf-8') as f:
+                lines = f.read().splitlines()
+    
+            if len(lines) > self.max_rows:
+                logger.error(
+                    f"File exceeds max row limit of {self.max_rows}. Found: {len(lines)}"
+                )
+                return False
+    
+            self.data = lines
+            self.last_loaded_file = filepath
+            logger.info(f"Loaded {len(lines)} lines from {filepath}")
+            return True
+    
+        except Exception as e:
+            logger.exception(f"Failed to load file: {e}")
+            return False
 
     def prepare(self, mode: str = 'naive') -> None:
         if self.data is None:
