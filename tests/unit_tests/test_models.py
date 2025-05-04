@@ -1,13 +1,18 @@
 import unittest
 import uuid
 from datetime import datetime
-from models import Log  
+from models import Log
 import threading
+
 
 class TestLog(unittest.TestCase):
 
     def test_normal_initialization(self):
-        log = Log(id="1", query="SELECT * FROM table", requesting_ip="127.0.0.1")
+        log = Log(
+            id="1",
+            query="SELECT * FROM table",
+            requesting_ip="127.0.0.1",
+        )
         self.assertEqual(log.query, "SELECT * FROM table")
         self.assertIsNone(log.execution_time)
         self.assertIsNone(log.timestamp)
@@ -25,11 +30,19 @@ class TestLog(unittest.TestCase):
 
     # def test_query_with_multibyte_characters(self):
     #     query = "😊" * 300  # Each emoji ~4 bytes
-    #     log = Log(id=str(uuid.uuid4()), query=query, requesting_ip="127.0.0.1")
+    #     log = Log(
+    #         id=str(uuid.uuid4()),
+    #         query=query,
+    #         requesting_ip="127.0.0.1",
+    #     )
     #     self.assertLessEqual(len(log.query.encode("utf-8")), 1024)
 
     def test_create_method_updates_fields(self):
-        log = Log(id=str(uuid.uuid4()), query="test", requesting_ip="192.168.0.1")
+        log = Log(
+            id=str(uuid.uuid4()),
+            query="test",
+            requesting_ip="192.168.0.1",
+        )
         log.create(found=True, exec_time=1.23)
         self.assertTrue(log.status)
         self.assertEqual(log.execution_time, 1.23)
@@ -56,9 +69,14 @@ class TestLog(unittest.TestCase):
             def encode(self, *_):
                 raise UnicodeEncodeError("utf-8", "x", 0, 1, "reason")
 
-        log = Log(id=str(uuid.uuid4()), query=BadStr(), requesting_ip="127.0.0.1")
+        _ = Log(
+            id=str(uuid.uuid4()),
+            query=BadStr(),
+            requesting_ip="127.0.0.1",
+        )
         # If exception is raised, test will fail
         self.assertTrue(True)
+
 
 if __name__ == '__main__':
     unittest.main()

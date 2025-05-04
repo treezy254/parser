@@ -1,6 +1,5 @@
 # flask_client.py
-from config import Config  # type: ignore
-from security import protect_buffer  # type: ignore
+
 import os
 import sys
 import json
@@ -9,10 +8,19 @@ import ssl
 import time
 from typing import Optional, List, Dict, Any, Union
 
-from flask import Flask, render_template, request, redirect, url_for  # type: ignore
+from flask import (
+    Flask, render_template, request,
+    redirect, url_for  # type: ignore
+)
 
-src_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src'))
+
+src_path = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), '..', 'src')
+)
 sys.path.append(src_path)
+
+from config import Config  # noqa: E402
+from security import protect_buffer  # noqa: E402
 
 app = Flask(__name__)
 
@@ -182,15 +190,19 @@ def index() -> str:
             current_file = data_file
             # Reload config after changing the data file
             new_config = Config()
-            new_server_conf = new_config.get_server_config()
             # We're not using new_server_conf, but we need to keep this
             # assignment to maintain functionality
+            _ = new_config.get_server_config()
 
             if not search_string:
                 return redirect(url_for('index'))
 
         if search_string:
-            queries = [q.strip() for q in search_string.split('\n') if q.strip()]
+            queries = [
+                q.strip()
+                for q in search_string.split('\n')
+                if q.strip()
+            ]
             all_responses: List[Union[str, Dict[str, Any]]] = []
             execution_times: List[float] = []
 
@@ -223,7 +235,9 @@ def index() -> str:
 
             end_time = time.time()
             total_time = end_time - start_time
-            queries_per_second = len(queries) / total_time if total_time > 0 else 0
+            queries_per_second = (
+                len(queries) / total_time if total_time > 0 else 0
+            )
             avg_execution_time = (
                 sum(execution_times) / len(execution_times)
                 if execution_times else None

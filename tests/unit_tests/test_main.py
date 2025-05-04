@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 import json
 import socket
 import datetime
@@ -48,7 +48,7 @@ class TestClientHandler(unittest.TestCase):
             query_string='search this',
             algo_name='naive'
         )
-        
+
         # Verify formatted response was sent
         expected_response = format_tcp_response(response_data)
         self.conn.sendall.assert_called_once_with(expected_response)
@@ -154,7 +154,9 @@ class TestClientHandler(unittest.TestCase):
         mock_protect.return_value = request_data
         self.conn.recv.return_value = request_data
 
-        self.app_service.read_logs.side_effect = Exception("Something went wrong")
+        self.app_service.read_logs.side_effect = Exception(
+            "Something went wrong"
+        )
 
         client_handler(self.conn, self.addr, self.app_service, self.config)
 
@@ -166,8 +168,10 @@ class TestClientHandler(unittest.TestCase):
     @patch('main.datetime')
     def test_format_tcp_response_string_exists(self, mock_datetime):
         # Mock datetime to return a fixed value
-        mock_datetime.datetime.now.return_value = datetime.datetime(2024, 1, 1, 12, 0, 0)
-        
+        mock_datetime.datetime.now.return_value = datetime.datetime(
+            2024, 1, 1, 12, 0, 0
+        )
+
         # Test STRING_EXISTS response
         result = {
             'status': 'STRING_EXISTS',
@@ -177,9 +181,9 @@ class TestClientHandler(unittest.TestCase):
             'timestamp': '2024-01-01T12:00:00',
             'id': 'abc-123'
         }
-        
+
         response = format_tcp_response(result)
-        
+
         expected = (
             "STRING EXISTS\n"
             "DEBUG:\n"
@@ -189,7 +193,7 @@ class TestClientHandler(unittest.TestCase):
             "  Timestamp: 2024-01-01T12:00:00\n"
             "  Log ID: abc-123\n"
         ).encode()
-        
+
         self.assertEqual(response, expected)
 
     def test_format_tcp_response_string_not_found(self):
@@ -202,9 +206,9 @@ class TestClientHandler(unittest.TestCase):
             'timestamp': '2024-01-02T14:30:00',
             'id': 'def-456'
         }
-        
+
         response = format_tcp_response(result)
-        
+
         expected = (
             "STRING NOT_FOUND\n"
             "DEBUG:\n"
@@ -214,7 +218,7 @@ class TestClientHandler(unittest.TestCase):
             "  Timestamp: 2024-01-02T14:30:00\n"
             "  Log ID: def-456\n"
         ).encode()
-        
+
         self.assertEqual(response, expected)
 
     def test_format_tcp_response_error(self):
@@ -228,9 +232,9 @@ class TestClientHandler(unittest.TestCase):
             'timestamp': '2024-01-03T09:15:00',
             'id': None
         }
-        
+
         response = format_tcp_response(result)
-        
+
         expected = (
             "ERROR: Test error message\n"
             "DEBUG:\n"
@@ -240,7 +244,7 @@ class TestClientHandler(unittest.TestCase):
             "  Timestamp: 2024-01-03T09:15:00\n"
             "  Log ID: None\n"
         ).encode()
-        
+
         self.assertEqual(response, expected)
 
 
@@ -271,13 +275,16 @@ class TestMainServer(unittest.TestCase):
         mock_config.return_value = mock_conf_instance
         mock_secure_socket.return_value = mock_sock
 
-        mock_sock.accept.side_effect = KeyboardInterrupt  # stop after first loop
+        # stop after first loop
+        mock_sock.accept.side_effect = KeyboardInterrupt
 
         with self.assertRaises(SystemExit):
             main()
 
         mock_socket_class.assert_called_once()
-        mock_secure_socket.assert_called_once_with(mock_sock, 'cert.pem', 'key.pem')
+        mock_secure_socket.assert_called_once_with(
+            mock_sock, 'cert.pem', 'key.pem'
+        )
         mock_sock.bind.assert_called_with(('0.0.0.0', 9999))
         mock_sock.listen.assert_called_once()
 

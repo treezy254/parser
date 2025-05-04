@@ -40228,5 +40228,23 @@
         "timestamp": "2025-05-04 09:58:26.771791",
         "status": true,
         "_lock": "<unlocked _thread.lock object at 0x7fc9e5bb7a40>"
+    },
+    {
+        "id": "2986d12a-152e-41ce-ada7-1a1f4fac872a",
+        "query": "apple1",
+        "requesting_ip": "127.0.0.1",
+        "execution_time": 3.4810000215657055e-06,
+        "timestamp": "2025-05-04 10:20:34.630300",
+        "status": true,
+        "_lock": "<unlocked _thread.lock object at 0x7fc9e6eb4a80>"
+    },
+    {
+        "id": "d4feab09-acb1-43e2-b6f1-83bd8166d499",
+        "query": "apple1",
+        "requesting_ip": "127.0.0.1",
+        "execution_time": 5.447000148706138e-06,
+        "timestamp": "2025-05-04 11:44:30.226261",
+        "status": true,
+        "_lock": "<unlocked _thread.lock object at 0x7fc9e6cb4b40>"
     }
 ]

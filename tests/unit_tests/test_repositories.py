@@ -1,10 +1,9 @@
 import unittest
 import os
-import json
 import tempfile
-from datetime import datetime
 from models import Log
-from repositories import LogRepository, StorageRepository 
+from repositories import LogRepository, StorageRepository
+
 
 class TestLogRepository(unittest.TestCase):
     def setUp(self):
@@ -83,12 +82,18 @@ class TestStorageRepository(unittest.TestCase):
     def test_prepare_dict_mode(self):
         self.repo.load_file(self.temp_file.name)
         self.repo.prepare("dict")
-        self.assertEqual(self.repo.search_data, {word: True for word in self.sample_data})
+        self.assertEqual(
+            self.repo.search_data,
+            {word: True for word in self.sample_data},
+        )
 
     def test_prepare_index_map_mode(self):
         self.repo.load_file(self.temp_file.name)
         self.repo.prepare("index_map")
-        self.assertEqual(self.repo.search_data, {i: word for i, word in enumerate(self.sample_data)})
+        self.assertEqual(
+            self.repo.search_data,
+            {i: word for i, word in enumerate(self.sample_data)},
+        )
 
     def test_prepare_binary_mode(self):
         self.repo.load_file(self.temp_file.name)
@@ -118,6 +123,7 @@ class TestStorageRepository(unittest.TestCase):
         self.repo.load_file(self.temp_file.name)
         with self.assertRaises(ValueError):
             self.repo.search("banana")
+
 
 if __name__ == "__main__":
     unittest.main()

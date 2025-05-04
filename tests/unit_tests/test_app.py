@@ -1,8 +1,8 @@
 import unittest
 from unittest.mock import MagicMock, patch
 from datetime import datetime
-from app import AppService 
-from models import Log
+from app import AppService
+
 
 class TestAppService(unittest.TestCase):
     def setUp(self):
@@ -11,7 +11,9 @@ class TestAppService(unittest.TestCase):
         self.mock_storage_repo = MagicMock()
         self.mock_config = MagicMock()
 
-        self.mock_config.get_file_config.return_value = {'linuxpath': 'data.txt'}
+        self.mock_config.get_file_config.return_value = {
+            'linuxpath': 'data.txt'
+        }
         self.mock_config.get_server_config.return_value = {
             'reread_on_query': False,
             'search_mode': 'naive'
@@ -33,7 +35,7 @@ class TestAppService(unittest.TestCase):
         self.mock_storage_repo.data = "some_data"
         self.mock_storage_repo.load_file.return_value = True
         self.mock_storage_repo.prepare.return_value = None
-        self.mock_storage_repo.search.return_value = (True, 0.123)  # Search found something
+        self.mock_storage_repo.search.return_value = (True, 0.123)
 
         # Prepare a Log mock that will be returned after create_log
         mock_log = MagicMock()
@@ -45,17 +47,21 @@ class TestAppService(unittest.TestCase):
 
         # Patch uuid.uuid4 to return a predictable ID
         with patch("uuid.uuid4", return_value="test-uuid"), \
-             patch("models.Log", return_value=mock_log) as mock_log_class:
+             patch("models.Log", return_value=mock_log) as _:
 
             # Make create method properly set timestamp and other properties
             def mock_create(found, exec_time):
                 mock_log.found = found
                 mock_log.execution_time = exec_time
                 mock_log.timestamp = datetime.now()
-            
+
             mock_log.create = mock_create
 
-            result = self.service.create_log("127.0.0.1", "test query", "naive")
+            result = self.service.create_log(
+                "127.0.0.1",
+                "test query",
+                "naive"
+            )
 
             # Assert the result is as expected
             self.assertEqual(result["id"], "test-uuid")
@@ -75,7 +81,7 @@ class TestAppService(unittest.TestCase):
 
     def test_create_log_no_data_loaded(self):
         self.mock_storage_repo.data = None
-        self.mock_storage_repo.load_file.return_value = True  # even if file loaded, still None
+        self.mock_storage_repo.load_file.return_value = True
 
         result = self.service.create_log("127.0.0.1", "query", "naive")
 
@@ -119,7 +125,10 @@ class TestAppService(unittest.TestCase):
         self.mock_storage_repo.prepare.return_value = None
 
         # First call returns success, second call throws exception
-        self.mock_storage_repo.search.side_effect = [(True, 0.123), Exception("fail")]
+        self.mock_storage_repo.search.side_effect = [
+            (True, 0.123),
+            Exception("fail")
+        ]
 
         # Mock log objects
         mock_log1 = MagicMock()
@@ -128,7 +137,7 @@ class TestAppService(unittest.TestCase):
         mock_log1.requesting_ip = "ip1"
         mock_log1.execution_time = 0.123
         mock_log1.timestamp = datetime.now()
-        
+
         mock_log2 = MagicMock()
         mock_log2.id = "uuid-2"
         mock_log2.query = "q2"
@@ -136,26 +145,34 @@ class TestAppService(unittest.TestCase):
 
         # Patch uuid.uuid4 and Log constructor
         with patch("uuid.uuid4", side_effect=["uuid-1", "uuid-2"]), \
-             patch("models.Log", side_effect=[mock_log1, mock_log2]) as mock_log_class:
-            
+             patch("models.Log", side_effect=[mock_log1, mock_log2]) as _:
+
             # Define a create method that properly sets attributes
             def mock_create1(found, exec_time):
                 mock_log1.found = found
                 mock_log1.execution_time = exec_time
                 mock_log1.timestamp = datetime.now()
-            
+
             mock_log1.create = mock_create1
-            
+
             def mock_create2(found, exec_time):
                 mock_log2.found = found
                 mock_log2.execution_time = exec_time
                 mock_log2.timestamp = datetime.now()
-            
+
             mock_log2.create = mock_create2
 
             requests = [
-                {"requesting_ip": "ip1", "query_string": "q1", "algo_name": "naive"},
-                {"requesting_ip": "ip2", "query_string": "q2", "algo_name": "naive"}
+                {
+                    "requesting_ip": "ip1",
+                    "query_string": "q1",
+                    "algo_name": "naive"
+                },
+                {
+                    "requesting_ip": "ip2",
+                    "query_string": "q2",
+                    "algo_name": "naive"
+                }
             ]
 
             # Force execute the first successful search, then fail the second
@@ -171,18 +188,26 @@ class TestAppService(unittest.TestCase):
                     }
                 else:  # Second request fails
                     raise Exception("fail")
-            
+
             # Mock the create_log method for deterministic results
-            with patch.object(self.service, 'create_log', side_effect=side_effect_create_log):
+            with patch.object(
+                self.service,
+                'create_log',
+                side_effect=side_effect_create_log
+            ):
                 result = self.service.create_logs_parallel(requests)
-                
+
                 # We should have 2 results - one success and one error
                 self.assertEqual(len(result), 2)
-                
+
                 # Check that we have at least one success and one error
-                success_results = [r for r in result if r.get("status") == "success"]
-                error_results = [r for r in result if r.get("status") == "error"]
-                
+                success_results = [
+                    r for r in result if r.get("status") == "success"
+                ]
+                error_results = [
+                    r for r in result if r.get("status") == "error"
+                ]
+
                 self.assertEqual(len(success_results), 1)
                 self.assertEqual(len(error_results), 1)
 
@@ -190,9 +215,13 @@ class TestAppService(unittest.TestCase):
         # Patch os.getcwd and os.path.isabs
         with patch("os.getcwd", return_value="/home/user/project"), \
              patch("os.path.isabs", return_value=False), \
-             patch("os.path.abspath", return_value="/home/user/project/data.txt"):
+             patch(
+                "os.path.abspath",
+                return_value="/home/user/project/data.txt"
+             ):
             self.service._validate_file_path()
             self.assertTrue(self.service.file_path.endswith("data.txt"))
+
 
 if __name__ == '__main__':
     unittest.main()

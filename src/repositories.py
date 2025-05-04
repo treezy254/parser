@@ -156,10 +156,10 @@ class StorageRepository:
     def load_file(self, filepath: str) -> bool:
         """
         Loads data from a file, enforcing a maximum row limit.
-    
+
         Args:
             filepath (str): Path to the file.
-    
+
         Returns:
             bool: True if successfully loaded, else False.
         """
@@ -167,21 +167,22 @@ class StorageRepository:
             if not os.path.isfile(filepath):
                 logger.error(f"File not found: {filepath}")
                 return False
-    
+
             with open(filepath, 'r', encoding='utf-8') as f:
                 lines = f.read().splitlines()
-    
+
             if len(lines) > self.max_rows:
                 logger.error(
-                    f"File exceeds max row limit of {self.max_rows}. Found: {len(lines)}"
+                    f"File exceeds max row limit of {self.max_rows}. "
+                    f"Found: {len(lines)}"
                 )
                 return False
-    
+
             self.data = lines
             self.last_loaded_file = filepath
             logger.info(f"Loaded {len(lines)} lines from {filepath}")
             return True
-    
+
         except Exception as e:
             logger.exception(f"Failed to load file: {e}")
             return False
