@@ -4,7 +4,7 @@
   },
   "server_config": {
     "reread_on_query": true,
-    "search_mode": "dict",
+    "search_mode": "trie",
     "port": 8441,
     "ssl_enabled": false,
     "ssl_cert": "certs/cert.pem",
