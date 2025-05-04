@@ -108,7 +108,9 @@ class AppService:
             if self.reread_on_query or self.storage_repo.data is None:
                 file_loaded = self.storage_repo.load_file(self.file_path)
                 if not file_loaded:
-                    logger.error(f"Failed to load data file: {self.file_path}")
+                    error_msg = f"Data file could not be loaded: {self.file_path}. " \
+                                f"Ensure the file exists and has ≤ {MAX_ROWS} rows."
+                    logger.error(error_msg)
                     return {
                         "id": None,
                         "query": query_string,
@@ -116,12 +118,7 @@ class AppService:
                         "execution_time": None,
                         "timestamp": None,
                         "status": "error",
-                        "error": (
-                            (
-                                f"Data file not found or couldn't be loaded: "
-                                f"{self.file_path}"
-                            )
-                        )
+                        "error": error_msg
                     }
 
             if self.storage_repo.data is None:
