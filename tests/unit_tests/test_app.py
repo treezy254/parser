@@ -71,7 +71,7 @@ class TestAppService(unittest.TestCase):
         result = self.service.create_log("127.0.0.1", "query", "naive")
 
         self.assertEqual(result["status"], "error")
-        self.assertIn("couldn't be loaded", result["error"])
+        self.assertIn("could not be loaded", result["error"])
 
     def test_create_log_no_data_loaded(self):
         self.mock_storage_repo.data = None

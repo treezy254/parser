@@ -30,6 +30,7 @@ class AppService:
         :param storage_repo: Repository for data storage and search logic
         :param config: Application configuration instance
         """
+        self.max_rows = 250_000
         self.log_repo = log_repo
         self.storage_repo = storage_repo
         self.config = config
@@ -109,7 +110,7 @@ class AppService:
                 file_loaded = self.storage_repo.load_file(self.file_path)
                 if not file_loaded:
                     error_msg = f"Data file could not be loaded: {self.file_path}. " \
-                                f"Ensure the file exists and has ≤ {MAX_ROWS} rows."
+                                f"Ensure the file exists and has ≤ {self.max_rows} rows."
                     logger.error(error_msg)
                     return {
                         "id": None,

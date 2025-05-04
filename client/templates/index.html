@@ -124,6 +124,42 @@
         color: #777;
         font-style: italic;
       }
+      
+      .performance-metrics {
+        background-color: #e8f4fc;
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        width: 80%;
+        max-width: 600px;
+        margin-bottom: 20px;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+      }
+      
+      .metric-card {
+        flex-basis: 45%;
+        background-color: white;
+        padding: 10px;
+        margin: 5px;
+        border-radius: 5px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        text-align: center;
+      }
+      
+      .metric-value {
+        font-size: 1.5em;
+        font-weight: bold;
+        color: #2c3e50;
+        margin: 5px 0;
+      }
+      
+      .metric-label {
+        font-size: 0.8em;
+        color: #7f8c8d;
+        text-transform: uppercase;
+      }
     </style>
   </head>
   <body>
@@ -134,10 +170,43 @@
     {% endif %}
 
     <form method="POST">
+      <label for="data_file">Select data file to search:</label>
+      <select id="data_file" name="data_file" style="width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; font-size: 0.9em;">
+        <option value="data10k.txt" {% if current_file == 'data10k.txt' %}selected{% endif %}>Small (10K entries)</option>
+        <option value="data250k.txt" {% if current_file == 'data250k.txt' %}selected{% endif %}>Medium (250K entries)</option>
+        <option value="data1000k.txt" {% if current_file == 'data1000k.txt' %}selected{% endif %}>Large (1000K entries)</option>
+      </select>
+      
       <label for="search_string">Enter string(s) to log (one per line):</label>
       <textarea id="search_string" name="search_string" rows="5"></textarea>
       <button type="submit">Log Strings</button>
     </form>
+
+    {% if performance_metrics %}
+    <div class="performance-metrics">
+      <div class="metric-card">
+        <div class="metric-label">Queries Per Second</div>
+        <div class="metric-value">{{ performance_metrics.queries_per_second }}</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Avg Execution Time</div>
+        <div class="metric-value">{{ performance_metrics.avg_execution_time_ms }} ms</div>
+        <div class="metric-label">(Converted from seconds)</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Total Queries</div>
+        <div class="metric-value">{{ performance_metrics.total_queries }}</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Total Time</div>
+        <div class="metric-value">{{ performance_metrics.total_time_seconds }} s</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Data File</div>
+        <div class="metric-value">{{ performance_metrics.data_file }}</div>
+      </div>
+    </div>
+    {% endif %}
 
     {% if results %}
     <div class="results-container">
