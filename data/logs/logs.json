@@ -40246,5 +40246,86 @@
         "timestamp": "2025-05-04 11:44:30.226261",
         "status": true,
         "_lock": "<unlocked _thread.lock object at 0x7fc9e6cb4b40>"
+    },
+    {
+        "id": "d5807c78-b2f1-419c-acf0-4c5631e74c66",
+        "query": "apple1",
+        "requesting_ip": "127.0.0.1",
+        "execution_time": 0.00018135199934476987,
+        "timestamp": "2025-05-04 12:02:43.512959",
+        "status": true,
+        "_lock": "<unlocked _thread.lock object at 0x7fc9e5f38740>"
+    },
+    {
+        "id": "12fa9782-ef8a-49bb-9395-d7fea9af318f",
+        "query": "apple1",
+        "requesting_ip": "127.0.0.1",
+        "execution_time": 2.3296999643207528e-05,
+        "timestamp": "2025-05-04 12:03:19.815799",
+        "status": true,
+        "_lock": "<unlocked _thread.lock object at 0x7fc9e5c4e780>"
+    },
+    {
+        "id": "74aaee81-c03a-4cb7-9d6c-9714777790d8",
+        "query": "nectarine19",
+        "requesting_ip": "127.0.0.1",
+        "execution_time": 5.485000656335615e-06,
+        "timestamp": "2025-05-04 12:04:31.546348",
+        "status": true,
+        "_lock": "<unlocked _thread.lock object at 0x7fc9e5c41b80>"
+    },
+    {
+        "id": "90b88d6e-a809-4e7b-90e4-9687f78cd059",
+        "query": "nectarine19",
+        "requesting_ip": "127.0.0.1",
+        "execution_time": 6.095000571804121e-06,
+        "timestamp": "2025-05-04 12:06:41.464836",
+        "status": true,
+        "_lock": "<unlocked _thread.lock object at 0x7fc9e6e8bd80>"
+    },
+    {
+        "id": "7ac5d56b-211e-40e4-9d3f-fcb5b0a03263",
+        "query": "nectarine19",
+        "requesting_ip": "127.0.0.1",
+        "execution_time": 6.866001058369875e-06,
+        "timestamp": "2025-05-04 12:08:11.184247",
+        "status": true,
+        "_lock": "<unlocked _thread.lock object at 0x7fc9e6eb4ac0>"
+    },
+    {
+        "id": "714640a0-97ff-421a-a753-13e4061b24e6",
+        "query": "apple1",
+        "requesting_ip": "127.0.0.1",
+        "execution_time": 5.268999302643351e-06,
+        "timestamp": "2025-05-04 12:08:26.310277",
+        "status": true,
+        "_lock": "<unlocked _thread.lock object at 0x7fc9e6cb4a80>"
+    },
+    {
+        "id": "5ce0fd17-aaee-4fe7-8d60-24ef8a5beebb",
+        "query": "nectarine19",
+        "requesting_ip": "127.0.0.1",
+        "execution_time": 7.140999514376745e-06,
+        "timestamp": "2025-05-04 12:08:49.133981",
+        "status": false,
+        "_lock": "<unlocked _thread.lock object at 0x7f5f82ae97c0>"
+    },
+    {
+        "id": "49b481a2-d89a-42a7-9162-74f744e918ab",
+        "query": "nectarine19",
+        "requesting_ip": "127.0.0.1",
+        "execution_time": 7.398999514407478e-06,
+        "timestamp": "2025-05-04 12:10:03.101303",
+        "status": false,
+        "_lock": "<unlocked _thread.lock object at 0x7f818b305800>"
+    },
+    {
+        "id": "d8a5f097-7c03-4862-8cc6-38dc2db19538",
+        "query": "apple1",
+        "requesting_ip": "127.0.0.1",
+        "execution_time": 7.651999112567864e-06,
+        "timestamp": "2025-05-04 12:14:12.425592",
+        "status": false,
+        "_lock": "<unlocked _thread.lock object at 0x7fa5954898c0>"
     }
 ]
