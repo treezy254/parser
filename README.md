@@ -48,8 +48,8 @@ Run all unit tests:
 pytest
 ```
 
-✅ End-to-End Test
+✅ Testing Client 
 
 ```
-python3 tests/e2e.py
+python3 client/flask_client.py
 ```
